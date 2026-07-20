@@ -1,6 +1,7 @@
 package framework.base;
 
 import framework.utilities.LoggerUtil;
+import framework.utilities.StepLogger;
 import framework.utilities.WaitUtils;
 import org.openqa.selenium.Alert;
 import org.openqa.selenium.By;
@@ -11,8 +12,9 @@ import org.slf4j.Logger;
 
 /**
  * Parent of every Page Object.
- * Provides reusable, logged Selenium wrappers. Page Objects extend this class
- * and never receive a {@link org.openqa.selenium.WebDriver} through their constructor —
+ * Provides reusable Selenium wrappers. Each wrapper records a step (log + Extent
+ * report + screenshot) via {@link StepLogger}. Page Objects extend this class and
+ * never receive a {@link org.openqa.selenium.WebDriver} through their constructor —
  * the driver is always obtained from {@link DriverManager}.
  */
 public abstract class BasePage {
@@ -25,80 +27,86 @@ public abstract class BasePage {
     }
 
     protected void click(By locator) {
-        log.info("Click: {}", locator);
         WaitUtils.waitForClickable(locator).click();
+        StepLogger.step(log, "Clicked: " + locator);
     }
 
     protected void type(By locator, String text) {
-        log.info("Type '{}' into: {}", text, locator);
         WebElement element = WaitUtils.waitForVisible(locator);
         element.clear();
         element.sendKeys(text);
+        StepLogger.step(log, "Typed '%s' into: %s".formatted(text, locator));
     }
 
     protected void clear(By locator) {
-        log.info("Clear: {}", locator);
         WaitUtils.waitForVisible(locator).clear();
+        StepLogger.step(log, "Cleared: " + locator);
     }
 
     protected String getText(By locator) {
         String text = WaitUtils.waitForVisible(locator).getText();
-        log.info("Get text '{}' from: {}", text, locator);
+        StepLogger.step(log, "Got text '%s' from: %s".formatted(text, locator));
         return text;
     }
 
     protected boolean isDisplayed(By locator) {
+        boolean displayed;
         try {
-            return WaitUtils.waitForVisible(locator).isDisplayed();
+            displayed = WaitUtils.waitForVisible(locator).isDisplayed();
         } catch (RuntimeException e) {
-            log.warn("Element not displayed: {}", locator);
-            return false;
+            displayed = false;
         }
+        StepLogger.step(log, "Is displayed [%s]: %s".formatted(displayed, locator));
+        return displayed;
     }
 
     protected WebElement waitForVisible(By locator) {
-        return WaitUtils.waitForVisible(locator);
+        WebElement element = WaitUtils.waitForVisible(locator);
+        StepLogger.step(log, "Waited for visible: " + locator);
+        return element;
     }
 
     protected WebElement waitForClickable(By locator) {
-        return WaitUtils.waitForClickable(locator);
+        WebElement element = WaitUtils.waitForClickable(locator);
+        StepLogger.step(log, "Waited for clickable: " + locator);
+        return element;
     }
 
     protected void scrollIntoView(By locator) {
-        log.info("Scroll into view: {}", locator);
         WebElement element = WaitUtils.waitForVisible(locator);
         ((JavascriptExecutor) driver()).executeScript("arguments[0].scrollIntoView(true);", element);
+        StepLogger.step(log, "Scrolled into view: " + locator);
     }
 
     protected void jsClick(By locator) {
-        log.info("JS click: {}", locator);
         WebElement element = WaitUtils.waitForVisible(locator);
         ((JavascriptExecutor) driver()).executeScript("arguments[0].click();", element);
+        StepLogger.step(log, "JS clicked: " + locator);
     }
 
     protected void selectByVisibleText(By locator, String visibleText) {
-        log.info("Select '{}' from: {}", visibleText, locator);
         new Select(WaitUtils.waitForVisible(locator)).selectByVisibleText(visibleText);
+        StepLogger.step(log, "Selected '%s' from: %s".formatted(visibleText, locator));
     }
 
     protected void acceptAlert() {
-        log.info("Accept alert");
         alert().accept();
+        StepLogger.step(log, "Accepted alert");
     }
 
     protected void dismissAlert() {
-        log.info("Dismiss alert");
         alert().dismiss();
+        StepLogger.step(log, "Dismissed alert");
     }
 
     protected void switchToFrame(By locator) {
-        log.info("Switch to frame: {}", locator);
         driver().switchTo().frame(WaitUtils.waitForVisible(locator));
+        StepLogger.step(log, "Switched to frame: " + locator);
     }
 
     protected void switchToDefault() {
-        log.info("Switch to default content");
         driver().switchTo().defaultContent();
+        StepLogger.step(log, "Switched to default content");
     }
 
     private Alert alert() {

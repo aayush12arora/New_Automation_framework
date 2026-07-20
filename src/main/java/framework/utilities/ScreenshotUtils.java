@@ -42,4 +42,22 @@ public final class ScreenshotUtils {
             return null;
         }
     }
+
+    /**
+     * Captures the current window as a Base64 string for embedding directly
+     * into the Extent report (no file needed).
+     *
+     * @return Base64 PNG, or {@code null} if no driver is available
+     */
+    public static String captureBase64() {
+        if (!DriverManager.isDriverInitialized()) {
+            return null;
+        }
+        try {
+            return ((TakesScreenshot) DriverManager.getDriver()).getScreenshotAs(OutputType.BASE64);
+        } catch (RuntimeException e) {
+            LOG.warn("Could not capture screenshot: {}", e.getMessage());
+            return null;
+        }
+    }
 }

@@ -3,7 +3,7 @@ package framework.base;
 import framework.constants.FrameworkConstants;
 import framework.utilities.LoggerUtil;
 import framework.utilities.PropertyManager;
-import io.github.bonigarcia.wdm.WebDriverManager;
+import framework.utilities.StepLogger;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -40,7 +40,7 @@ public final class DriverManager {
         driver.manage().window().maximize();
 
         DRIVER.set(driver);
-        LOG.info("Driver created for browser '{}' (headless={})", browser, headless);
+        StepLogger.step(LOG, "Driver created for browser '%s' (headless=%s)".formatted(browser, headless));
     }
 
     /** @return the driver bound to the current thread. */
@@ -50,6 +50,11 @@ public final class DriverManager {
             throw new IllegalStateException("Driver has not been initialised. Call setDriver() first.");
         }
         return driver;
+    }
+
+    /** @return {@code true} if a driver is bound to the current thread. */
+    public static boolean isDriverInitialized() {
+        return DRIVER.get() != null;
     }
 
     /** Quits the driver and clears it from the current thread. */
@@ -63,9 +68,10 @@ public final class DriverManager {
     }
 
     private static WebDriver createDriver(String browser, boolean headless) {
+        // Selenium Manager (built into Selenium 4.6+) resolves the browser driver
+        // binary automatically, so no external driver manager is required.
         return switch (browser.toLowerCase()) {
             case "firefox" -> {
-                WebDriverManager.firefoxdriver().setup();
                 FirefoxOptions options = new FirefoxOptions();
                 if (headless) {
                     options.addArguments("-headless");
@@ -74,7 +80,6 @@ public final class DriverManager {
                 yield new FirefoxDriver(options);
             }
             case "chrome" -> {
-                WebDriverManager.chromedriver().setup();
                 ChromeOptions options = new ChromeOptions();
                 if (headless) {
                     options.addArguments("--headless=new");
@@ -83,7 +88,6 @@ public final class DriverManager {
                 yield new ChromeDriver(options);
             }
             case "edge" -> {
-                WebDriverManager.edgedriver().setup();
                 EdgeOptions options = new EdgeOptions();
                 if (headless) {
                     options.addArguments("--headless=new");
