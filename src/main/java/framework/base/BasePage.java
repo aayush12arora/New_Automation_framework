@@ -15,16 +15,11 @@ import org.slf4j.Logger;
  * Provides reusable Selenium wrappers. Each wrapper records a step (log + Extent
  * report + screenshot) via {@link StepLogger}. Page Objects extend this class and
  * never receive a {@link org.openqa.selenium.WebDriver} through their constructor —
- * the driver is always obtained from {@link DriverManager}.
+ * the driver is inherited from {@link DriverContext} via {@link #getDriver()}.
  */
-public abstract class BasePage {
+public abstract class BasePage extends DriverContext {
 
     protected final Logger log = LoggerUtil.getLogger(getClass());
-
-    /** @return the driver bound to the current thread. */
-    protected org.openqa.selenium.WebDriver driver() {
-        return DriverManager.getDriver();
-    }
 
     protected void click(By locator) {
         WaitUtils.waitForClickable(locator).click();
@@ -74,13 +69,13 @@ public abstract class BasePage {
 
     protected void scrollIntoView(By locator) {
         WebElement element = WaitUtils.waitForVisible(locator);
-        ((JavascriptExecutor) driver()).executeScript("arguments[0].scrollIntoView(true);", element);
+        ((JavascriptExecutor) getDriver()).executeScript("arguments[0].scrollIntoView(true);", element);
         StepLogger.step(log, "Scrolled into view: " + locator);
     }
 
     protected void jsClick(By locator) {
         WebElement element = WaitUtils.waitForVisible(locator);
-        ((JavascriptExecutor) driver()).executeScript("arguments[0].click();", element);
+        ((JavascriptExecutor) getDriver()).executeScript("arguments[0].click();", element);
         StepLogger.step(log, "JS clicked: " + locator);
     }
 
@@ -100,16 +95,16 @@ public abstract class BasePage {
     }
 
     protected void switchToFrame(By locator) {
-        driver().switchTo().frame(WaitUtils.waitForVisible(locator));
+        getDriver().switchTo().frame(WaitUtils.waitForVisible(locator));
         StepLogger.step(log, "Switched to frame: " + locator);
     }
 
     protected void switchToDefault() {
-        driver().switchTo().defaultContent();
+        getDriver().switchTo().defaultContent();
         StepLogger.step(log, "Switched to default content");
     }
 
     private Alert alert() {
-        return driver().switchTo().alert();
+        return getDriver().switchTo().alert();
     }
 }

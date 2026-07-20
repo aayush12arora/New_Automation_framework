@@ -3,7 +3,6 @@ package framework.base;
 import framework.reporting.ExtentReportManager;
 import framework.utilities.LoggerUtil;
 import framework.utilities.StepLogger;
-import org.openqa.selenium.WebDriver;
 import org.slf4j.Logger;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -14,8 +13,10 @@ import java.lang.reflect.Method;
  * Root test class. Owns only framework initialisation:
  * report node + driver creation before each test and teardown after each test.
  * UI- or API-specific setup belongs in subclasses.
+ *
+ * <p>Inherits {@link #getDriver()} from {@link DriverContext}.</p>
  */
-public abstract class BaseTest {
+public abstract class BaseTest extends DriverContext {
 
     protected final Logger log = LoggerUtil.getLogger(getClass());
 
@@ -32,10 +33,5 @@ public abstract class BaseTest {
         StepLogger.step(log, "=== Test teardown: quitting driver ===");
         DriverManager.quitDriver();
         ExtentReportManager.remove();
-    }
-
-    /** @return the driver bound to the current thread. */
-    protected WebDriver getDriver() {
-        return DriverManager.getDriver();
     }
 }

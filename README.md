@@ -33,7 +33,7 @@ screenshotOnEachStep=true  # set false to only screenshot on pass/fail
 ## Structure
 ```
 framework
-├── base        BaseTest, BaseUITest, BasePage, DriverManager
+├── base        DriverContext, BaseTest, BaseUITest, BasePage, DriverManager
 ├── pages       Page Objects (LoginPage)
 ├── api         executors/ + validators/ (REST Assured)
 ├── reporting   ExtentReportManager, TestListener
@@ -44,6 +44,9 @@ framework
 
 ## Key conventions
 - Driver is held in a `ThreadLocal` inside `DriverManager` — no singleton.
-- Page Objects extend `BasePage` and obtain the driver internally; **no** constructor injection.
+- `DriverContext` is the shared ancestor that exposes `getDriver()`; both `BaseTest`
+  and `BasePage` extend it, so tests **and** pages inherit the driver without pages
+  becoming tests (no TestNG annotations leak into Page Objects).
+- Page Objects extend `BasePage` and obtain the driver via inheritance; **no** constructor injection.
 - Tests extend `BaseUITest`, instantiate pages with `new LoginPage()`, and hold all assertions.
 - `By` locators only — no PageFactory, no static sleeps.
