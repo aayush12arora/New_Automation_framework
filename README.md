@@ -66,6 +66,15 @@ src/test/resources/testdata/<testMethodName>.json   # test data, named after the
 - Page Objects extend `BasePage` and obtain the driver via inheritance; **no** constructor injection.
 - `By` locators only — no PageFactory, no static sleeps.
 
+### Test lifecycle
+- `BaseUITest` **launches the app automatically** before every test — test classes write
+  only `@Test` methods, no `@BeforeMethod` of their own.
+- A test class may set a custom launch URL from its constructor: `super("https://…")`.
+  Omit the constructor to use the URL from `framework.properties`.
+- The constructor only *configures* the URL — the driver is created per test in
+  `BaseTest.setUp`, so navigation itself runs in `BaseUITest`'s `@BeforeMethod` (a driver
+  cannot be used from a constructor, which runs once, before any driver exists).
+
 ### Assertions
 - Tests **never** call raw `Assert.*`. All UI assertions go through `UIAssertions`,
   exposed as `assertions` on `BaseUITest`.

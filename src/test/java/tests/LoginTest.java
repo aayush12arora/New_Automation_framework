@@ -2,7 +2,6 @@ package tests;
 
 import framework.base.BaseUITest;
 import framework.pages.LoginPage;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -10,18 +9,20 @@ import org.testng.annotations.Test;
  *
  * <p>Conventions demonstrated:</p>
  * <ul>
+ *   <li>The application is launched automatically before each test — no
+ *       {@code @BeforeMethod} here. The launch URL is set via {@code super(...)}
+ *       (omit the constructor to use the URL from {@code framework.properties}).</li>
  *   <li>Test data comes from {@code customerData} (loaded by BaseTest from
- *       {@code testdata/verifyLogin.json} — the file is named after the test).</li>
- *   <li>No JSON parsing here and no raw {@code Assert.*} — verification goes through
+ *       {@code testdata/verifyLogin.<json|xlsx>} — the file is named after the test).</li>
+ *   <li>No file parsing here and no raw {@code Assert.*} — verification goes through
  *       {@code assertions} (soft asserts are finalised automatically by the framework).</li>
  *   <li>Pages are instantiated directly: {@code new LoginPage()}.</li>
  * </ul>
  */
 public class LoginTest extends BaseUITest {
 
-    @BeforeMethod(alwaysRun = true)
-    public void launchApplication() {
-        initializeApplication();
+    public LoginTest() {
+        super("https://example.com");
     }
 
     @Test
