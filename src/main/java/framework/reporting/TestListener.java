@@ -89,5 +89,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
         } else {
             ExtentReportManager.getTest().log(status, message);
         }
+        // Flush after each test so the report exists even if the suite is interrupted.
+        ExtentReportManager.flush();
     }
 }

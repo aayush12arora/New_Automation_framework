@@ -27,6 +27,8 @@
         <rest-assured.version>5.5.0</rest-assured.version>
         <commons-io.version>2.18.0</commons-io.version>
         <commons-lang3.version>3.17.0</commons-lang3.version>
+        <poi.version>5.3.0</poi.version>
+        <log4j.version>2.24.3</log4j.version>
 
         <!-- Plugin versions -->
         <surefire.version>3.5.2</surefire.version>
@@ -85,6 +87,20 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons-lang3.version}</version>
+        </dependency>
+
+        <!-- Excel test-data support -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!-- Route POI's Log4j2 logging through SLF4J/Logback -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-to-slf4j</artifactId>
+            <version>${log4j.version}</version>
         </dependency>
     </dependencies>
 

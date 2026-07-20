@@ -21,6 +21,11 @@ public final class FrameworkConstants {
     public static final String EXPLICIT_WAIT = "explicitWait";
     public static final String SCREENSHOT_EACH_STEP = "screenshotOnEachStep";
 
+    /** Data-source toggle: {@code json} or {@code excel}. */
+    public static final String DATA_SOURCE = "dataSource";
+    public static final String DATA_SOURCE_JSON = "json";
+    public static final String DATA_SOURCE_EXCEL = "excel";
+
     // Database property keys.
     public static final String DB_URL = "db.url";
     public static final String DB_USERNAME = "db.username";
@@ -29,9 +34,9 @@ public final class FrameworkConstants {
     /** Directory where captured screenshots are written. */
     public static final String SCREENSHOT_DIR = "target/screenshots";
 
-    /** Extent HTML report output location. */
-    public static final String EXTENT_REPORT_PATH = "target/extent-report/index.html";
+    /** Base directory for Extent reports; each run goes in a timestamped sub-folder. */
+    public static final String EXTENT_REPORT_DIR = "target/extent-report";
 
-    /** Classpath directory holding per-test JSON data (file name = test method name). */
+    /** Classpath directory holding per-test data (file name = test method name). */
     public static final String TESTDATA_DIR = "testdata/";
 }

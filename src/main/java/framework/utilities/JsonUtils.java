@@ -44,6 +44,11 @@ public final class JsonUtils {
         }
     }
 
+    /** Maps an arbitrary object (e.g. a {@code Map} from Excel) onto a POJO. */
+    public static <T> T convert(Object from, Class<T> type) {
+        return MAPPER.convertValue(from, type);
+    }
+
     /** @return {@code true} if the classpath resource exists. */
     public static boolean resourceExists(String classpathResource) {
         return JsonUtils.class.getClassLoader().getResource(classpathResource) != null;

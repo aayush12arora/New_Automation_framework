@@ -14,8 +14,11 @@ mvn clean test
 ```
 
 ## Reporting
-- **Extent report:** `target/extent-report/index.html` — every step is logged with a
-  screenshot, and a final pass/fail screenshot is attached at the end of each test.
+- **Extent report:** `target/extent-report/<timestamp>/index.html` — each run gets its
+  own timestamped folder. Every step is logged with a screenshot, and a final pass/fail
+  screenshot is attached at the end of each test.
+- The `TestListener` is registered via `@Listeners` on `BaseTest`, so the report is
+  produced whether tests run from the IDE or from `testng.xml`.
 - **Logs:** console + `target/logs/automation.log` (same steps mirrored via SLF4J/Logback).
 - **Screenshots on disk:** `target/screenshots/`.
 
@@ -28,6 +31,7 @@ url=https://example.com
 implicitWait=10
 explicitWait=20
 screenshotOnEachStep=true  # set false to only screenshot on pass/fail
+dataSource=json            # json | excel — how test data is loaded
 
 # Database (SQL) — drop your JDBC driver on the classpath and set these
 db.url=jdbc:mysql://localhost:3306/testdb
@@ -43,7 +47,7 @@ framework
 ├── assertions  UIAssertions (hard + soft)
 ├── api         executors/ + validators/ (REST Assured)
 ├── reporting   ExtentReportManager, TestListener
-├── utilities   PropertyManager, WaitUtils, ScreenshotUtils, JsonUtils, StepLogger, LoggerUtil
+├── utilities   PropertyManager, WaitUtils, ScreenshotUtils, JsonUtils, ExcelUtils, StepLogger, LoggerUtil
 ├── data
 │   ├── customer     CustomerData (test-data POJO)
 │   ├── database     DatabaseConnection, DatabaseValidator (SQL/JDBC)
@@ -71,8 +75,13 @@ src/test/resources/testdata/<testMethodName>.json   # test data, named after the
   `TestListener` after each test — tests do not call `assertAll()`.
 - Database validations live in their own class, `data.database.DatabaseValidator`.
 
-### Test data
-- Each test's JSON is named after the test method: `testdata/<testMethodName>.json`.
-- `BaseTest` reads it via `JsonUtils` and maps it into `customerData` (a `CustomerData`
-  object) **before** the test runs — tests read `customerData`, never parse JSON.
-- If no matching JSON exists, `customerData` is an empty (non-null) object.
+### Test data (JSON or Excel)
+- The `dataSource` property toggles the source: `json` or `excel`. The rest of the flow
+  is identical.
+- The data file is **named after the test method**: `testdata/<testMethodName>.json`
+  or `testdata/<testMethodName>.xlsx`.
+- Attribute names match the `CustomerData` fields — JSON keys, or **Excel headers**
+  (row 0 = headers, row 1 = data).
+- `BaseTest` loads it via `JsonUtils` / `ExcelUtils` and maps it into `customerData`
+  **before** the test runs — tests read `customerData`, never parse files themselves.
+- If no matching file exists, `customerData` is an empty (non-null) object.
