@@ -1,17 +1,21 @@
 package tests;
 
 import framework.base.BaseUITest;
-import framework.data.pojo.LoginData;
 import framework.pages.LoginPage;
-import framework.utilities.JsonUtils;
-import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
  * Sample UI test for the login flow.
- * Pages are instantiated directly (no constructor injection);
- * assertions live in the test, never in the Page Object.
+ *
+ * <p>Conventions demonstrated:</p>
+ * <ul>
+ *   <li>Test data comes from {@code customerData} (loaded by BaseTest from
+ *       {@code testdata/verifyLogin.json} — the file is named after the test).</li>
+ *   <li>No JSON parsing here and no raw {@code Assert.*} — verification goes through
+ *       {@code assertions} (soft asserts are finalised automatically by the framework).</li>
+ *   <li>Pages are instantiated directly: {@code new LoginPage()}.</li>
+ * </ul>
  */
 public class LoginTest extends BaseUITest {
 
@@ -21,19 +25,15 @@ public class LoginTest extends BaseUITest {
     }
 
     @Test
-    public void verifyLoginPageLoads() {
+    public void verifyLogin() {
         LoginPage loginPage = new LoginPage();
-        Assert.assertNotNull(getDriver().getTitle(), "Page title should be available after load");
-    }
 
-    @Test
-    public void verifyLoginWithTestData() {
-        LoginData data = JsonUtils.read("testdata/login.json", LoginData.class);
+        // Test data is already available via customerData (initialised in BaseTest).
+        assertions.softAssertNotNull(customerData.getUsername(), "Username should load from test data");
+        assertions.softAssertNotNull(customerData.getPassword(), "Password should load from test data");
 
-        LoginPage loginPage = new LoginPage();
-        // Business flow lives in the page; the assertion lives here.
-        // (example.com has no login form, so this documents intended usage.)
-        Assert.assertNotNull(data.getUsername(), "Username should load from test data");
-        Assert.assertNotNull(data.getPassword(), "Password should load from test data");
+        // Against a real login page this is the business flow:
+        // loginPage.login(customerData.getUsername(), customerData.getPassword());
+        assertions.softAssertContains(getDriver().getTitle(), "Example", "Page title should contain 'Example'");
     }
 }

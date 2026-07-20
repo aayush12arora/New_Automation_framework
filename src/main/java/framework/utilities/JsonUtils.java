@@ -43,4 +43,9 @@ public final class JsonUtils {
             throw new IllegalStateException("Unable to parse JSON string", e);
         }
     }
+
+    /** @return {@code true} if the classpath resource exists. */
+    public static boolean resourceExists(String classpathResource) {
+        return JsonUtils.class.getClassLoader().getResource(classpathResource) != null;
+    }
 }

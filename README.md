@@ -28,6 +28,11 @@ url=https://example.com
 implicitWait=10
 explicitWait=20
 screenshotOnEachStep=true  # set false to only screenshot on pass/fail
+
+# Database (SQL) — drop your JDBC driver on the classpath and set these
+db.url=jdbc:mysql://localhost:3306/testdb
+db.username=root
+db.password=root
 ```
 
 ## Structure
@@ -35,11 +40,18 @@ screenshotOnEachStep=true  # set false to only screenshot on pass/fail
 framework
 ├── base        DriverContext, BaseTest, BaseUITest, BasePage, DriverManager
 ├── pages       Page Objects (LoginPage)
+├── assertions  UIAssertions (hard + soft)
 ├── api         executors/ + validators/ (REST Assured)
 ├── reporting   ExtentReportManager, TestListener
 ├── utilities   PropertyManager, WaitUtils, ScreenshotUtils, JsonUtils, StepLogger, LoggerUtil
-├── data        environment / customer / database / testdata / pojo
+├── data
+│   ├── customer     CustomerData (test-data POJO)
+│   ├── database     DatabaseConnection, DatabaseValidator (SQL/JDBC)
+│   ├── environment  (placeholder)
+│   └── pojo         (placeholder)
 └── constants   FrameworkConstants
+
+src/test/resources/testdata/<testMethodName>.json   # test data, named after the test
 ```
 
 ## Key conventions
@@ -48,5 +60,19 @@ framework
   and `BasePage` extend it, so tests **and** pages inherit the driver without pages
   becoming tests (no TestNG annotations leak into Page Objects).
 - Page Objects extend `BasePage` and obtain the driver via inheritance; **no** constructor injection.
-- Tests extend `BaseUITest`, instantiate pages with `new LoginPage()`, and hold all assertions.
 - `By` locators only — no PageFactory, no static sleeps.
+
+### Assertions
+- Tests **never** call raw `Assert.*`. All UI assertions go through `UIAssertions`,
+  exposed as `assertions` on `BaseUITest`.
+- Both **hard** (`assertTrue`, `assertEquals`, …) and **soft**
+  (`softAssertTrue`, `softAssertEquals`, …) assertions are supported.
+- Soft assertions are collected per thread and **finalised automatically** by
+  `TestListener` after each test — tests do not call `assertAll()`.
+- Database validations live in their own class, `data.database.DatabaseValidator`.
+
+### Test data
+- Each test's JSON is named after the test method: `testdata/<testMethodName>.json`.
+- `BaseTest` reads it via `JsonUtils` and maps it into `customerData` (a `CustomerData`
+  object) **before** the test runs — tests read `customerData`, never parse JSON.
+- If no matching JSON exists, `customerData` is an empty (non-null) object.
