@@ -13,6 +13,22 @@ Minimal, modular Selenium 4 + TestNG framework. Firefox is the default browser.
 mvn clean test
 ```
 
+## Parallel execution
+`testng.xml` runs with `parallel="methods" thread-count="3"` — each `@Test` method
+runs on its own thread, launching its own browser instance.
+
+The framework is built for this out of the box:
+- `DriverManager` (`ThreadLocal<WebDriver>`), `ExtentReportManager`
+  (`ThreadLocal<ExtentTest>`), `BaseTest.getCustomerData()` (`ThreadLocal<CustomerData>`),
+  and `UIAssertions`' soft-assert collector are all thread-local, since TestNG runs a
+  class's `@Test` methods on separate threads against **one shared instance** of that
+  class under `parallel="methods"`. A plain instance field would be overwritten across
+  threads; a `ThreadLocal` isn't.
+- Tune `thread-count` to your machine's CPU/RAM — each thread opens its own browser.
+  Consider `headless=true` in `framework.properties` when running many threads.
+- To make an *individual* test class single-threaded relative to others, TestNG also
+  supports `@Test(singleThreaded = true)` and per-class overrides if needed.
+
 ## Reporting
 - **Extent report:** `target/extent-report/<timestamp>/index.html` — each run gets its
   own timestamped folder. Every step is logged with a screenshot, and a final pass/fail
@@ -91,6 +107,7 @@ src/test/resources/testdata/<testMethodName>.json   # test data, named after the
   or `testdata/<testMethodName>.xlsx`.
 - Attribute names match the `CustomerData` fields — JSON keys, or **Excel headers**
   (row 0 = headers, row 1 = data).
-- `BaseTest` loads it via `JsonUtils` / `ExcelUtils` and maps it into `customerData`
-  **before** the test runs — tests read `customerData`, never parse files themselves.
-- If no matching file exists, `customerData` is an empty (non-null) object.
+- `BaseTest` loads it via `JsonUtils` / `ExcelUtils` and maps it into thread-local
+  storage **before** the test runs — tests call `getCustomerData()`, never parse
+  files themselves.
+- If no matching file exists, `getCustomerData()` returns an empty (non-null) object.

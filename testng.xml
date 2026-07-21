@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="AutomationSuite" verbose="1">
+<suite name="AutomationSuite" verbose="1" parallel="methods" thread-count="3">
     <!-- TestListener is registered via @Listeners on BaseTest, so it applies
-         whether tests run from the IDE or from this suite file. -->
+         whether tests run from the IDE or from this suite file.
+
+         parallel="methods": each @Test method runs on its own thread, even
+         within the same class, so the driver, report node and test data must
+         all be thread-local — DriverManager, ExtentReportManager and
+         BaseTest.getCustomerData() are all ThreadLocal-backed for this reason.
+
+         thread-count: how many @Test methods run concurrently. Each thread
+         launches its own browser instance, so keep this in line with the
+         machine's CPU/RAM (and consider headless=true in framework.properties
+         when running many threads). -->
     <test name="LoginTests">
         <classes>
             <class name="tests.LoginTest"/>
