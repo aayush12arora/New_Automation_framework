@@ -7,6 +7,7 @@ import framework.constants.FrameworkConstants;
 import framework.utilities.LoggerUtil;
 import org.slf4j.Logger;
 
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -20,6 +21,7 @@ public final class ExtentReportManager {
     private static final Logger LOG = LoggerUtil.getLogger(ExtentReportManager.class);
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
+    private static final Path REPORT_PATH = buildReportPath();
     private static final ExtentReports EXTENT = create();
     private static final ThreadLocal<ExtentTest> TEST = new ThreadLocal<>();
 
@@ -27,16 +29,24 @@ public final class ExtentReportManager {
         // Prevent instantiation.
     }
 
+    private static Path buildReportPath() {
+        return Path.of(FrameworkConstants.EXTENT_REPORT_DIR,
+                LocalDateTime.now().format(TIMESTAMP), "index.html");
+    }
+
     private static ExtentReports create() {
-        String reportPath = "%s/%s/index.html".formatted(
-                FrameworkConstants.EXTENT_REPORT_DIR, LocalDateTime.now().format(TIMESTAMP));
-        ExtentSparkReporter spark = new ExtentSparkReporter(reportPath);
+        ExtentSparkReporter spark = new ExtentSparkReporter(REPORT_PATH.toString());
         spark.config().setDocumentTitle("Automation Report");
         spark.config().setReportName("Selenium Automation Framework");
         ExtentReports extent = new ExtentReports();
         extent.attachReporter(spark);
-        LOG.info("Extent report will be written to {}", reportPath);
+        LOG.info("Extent report will be written to {}", REPORT_PATH);
         return extent;
+    }
+
+    /** @return the path to this run's generated Extent HTML report. */
+    public static Path getReportPath() {
+        return REPORT_PATH;
     }
 
     /** Creates a report node for the current test and binds it to this thread. */

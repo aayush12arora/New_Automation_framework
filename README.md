@@ -40,6 +40,26 @@ does nothing and logs why — it never breaks the test run itself. A local copy 
 every generated report is also kept under `target/qtest-reports/` regardless of
 whether the upload succeeds.
 
+### The Extent HTML report is also attached (best-effort)
+
+qTest's `auto-test-logs` endpoint only understands JUnit XML — it can't ingest an
+arbitrary HTML file as "results". So getting the Extent report into qTest is a
+second, separate step, chained automatically after the first:
+
+1. Upload the JUnit XML → qTest treats this as an **asynchronous job** and returns
+   a job id, which `QTestUploader` polls (`GET .../jobs/{jobId}`) until it reports
+   `SUCCESS` or `FAILURE`.
+2. On success, the job's response is searched for the created **Test Run id**.
+3. The Extent HTML report (`ExtentReportManager.getReportPath()`) is then POSTed to
+   that Test Run as a file attachment (`.../test-runs/{id}/blob-handles`).
+
+**This was built without a live qTest account, so step 2/3 are a best guess at the
+response shape** — every request/response is logged in full at each stage. If the
+Test Run id can't be found (logged as a warning) or the attachment call is
+rejected, share the logged job response and I'll adjust `findTestRunId()` or the
+attachment URL to match your tenant's actual behaviour. Nothing here can break the
+test run itself — every failure just logs and returns.
+
 ## Parallel execution
 `testng.xml` runs with `parallel="methods" thread-count="3"` — each `@Test` method
 runs on its own thread, launching its own browser instance.

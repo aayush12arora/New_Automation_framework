@@ -1,6 +1,9 @@
 package framework.qtest;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import framework.constants.FrameworkConstants;
+import framework.reporting.ExtentReportManager;
 import framework.utilities.LoggerUtil;
 import framework.utilities.PropertyManager;
 import org.slf4j.Logger;
@@ -23,11 +26,24 @@ import java.util.Set;
  * Pushes test results to qTest's Automation API at the end of a run, so a plain
  * {@code mvn test} is enough — no separate upload command.
  *
- * <p>The JUnit-format XML qTest expects is built directly from the in-memory
- * {@link ITestContext} results (not read back from Surefire's own report files):
- * Surefire only writes {@code target/surefire-reports/*.xml} <em>after</em> the
- * whole TestNG run returns control to it, which is after this listener's
- * {@code onFinish} already ran — so those files would not exist yet at that point.</p>
+ * <p>Two calls happen, in order:</p>
+ * <ol>
+ *   <li><b>Results</b> — a JUnit-format XML report is built directly from the
+ *       in-memory {@link ITestContext} (not read back from Surefire's own report
+ *       files, which are written only <em>after</em> this listener runs) and POSTed
+ *       to qTest's {@code auto-test-logs} endpoint. That call is documented as
+ *       asynchronous: it returns a job id, which is polled until the job finishes.</li>
+ *   <li><b>Extent report attachment</b> — once the job reports success, its response
+ *       is searched for the created Test Run id, and the Extent HTML report is
+ *       attached to that Test Run as supporting evidence.</li>
+ * </ol>
+ *
+ * <p><b>This second step is best-effort.</b> qTest's exact job-response shape and
+ * attachment endpoint can vary by tenant/version — this was built without access to
+ * a live account. Every response is logged in full, so if the Test Run id can't be
+ * found, or the attachment call is rejected, the log shows exactly what qTest
+ * returned; feed that back to adjust {@link #findTestRunId(JsonNode)} or the
+ * attachment URL.</p>
  *
  * <p>Controlled entirely by {@code framework.properties}: {@code qtestEnabled}
  * (default {@code false}), {@code qtestDomain}, {@code qtestProjectId}. The API
@@ -39,7 +55,11 @@ public final class QTestUploader {
     private static final Logger LOG = LoggerUtil.getLogger(QTestUploader.class);
     private static final String BOUNDARY = "----FrameworkQTestBoundary";
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+
+    private static final int JOB_POLL_MAX_ATTEMPTS = 15;
+    private static final long JOB_POLL_INTERVAL_MS = 2000;
 
     private QTestUploader() {
         // Prevent instantiation.
@@ -57,10 +77,28 @@ public final class QTestUploader {
             return;
         }
 
+        String domain = PropertyManager.get(FrameworkConstants.QTEST_DOMAIN);
+        String projectId = PropertyManager.get(FrameworkConstants.QTEST_PROJECT_ID);
+
         String xml = buildJunitXml(context);
         Path localCopy = writeLocalCopy(xml);
-        upload(xml, localCopy.getFileName().toString(), token);
+
+        Long jobId = uploadJunitXml(xml, localCopy.getFileName().toString(), domain, projectId, token);
+        if (jobId == null) {
+            return; // Already logged.
+        }
+
+        String testRunId = pollJobForTestRunId(domain, projectId, jobId, token);
+        if (testRunId == null) {
+            LOG.warn("Could not determine the created qTest Test Run id from the automation job "
+                    + "(see the job response logged above) — Extent report was not attached. "
+                    + "Share that response so findTestRunId() can be adjusted.");
+            return;
+        }
+        attachExtentReport(domain, projectId, testRunId, token);
     }
+
+    // ------------------------------------------------------------ Step 1: results
 
     private static String buildJunitXml(ITestContext context) {
         Set<ITestResult> passed = context.getPassedTests().getAllResults();
@@ -128,41 +166,134 @@ public final class QTestUploader {
         return file;
     }
 
-    private static void upload(String xml, String fileName, String token) {
-        String domain = PropertyManager.get(FrameworkConstants.QTEST_DOMAIN);
-        String projectId = PropertyManager.get(FrameworkConstants.QTEST_PROJECT_ID);
+    /** @return the qTest job id from the response, or {@code null} if the call itself failed. */
+    private static Long uploadJunitXml(String xml, String fileName, String domain, String projectId, String token) {
         String url = "https://%s/api/v3/projects/%s/auto-test-logs?type=junit".formatted(domain, projectId);
-
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + token)
                     .header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY)
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(buildMultipartBody(xml, fileName)))
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(
+                            multipartBody(xml.getBytes(StandardCharsets.UTF_8), fileName, "application/xml")))
                     .build();
 
             HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            LOG.info("qTest auto-test-logs response: HTTP {} - {}", response.statusCode(), response.body());
 
+            if (response.statusCode() / 100 != 2) {
+                LOG.error("qTest results upload failed: HTTP {}", response.statusCode());
+                return null;
+            }
+            JsonNode body = MAPPER.readTree(response.body());
+            if (body.has("id")) {
+                return body.get("id").asLong();
+            }
+            LOG.warn("qTest auto-test-logs response had no top-level 'id' (job id) field; cannot poll for completion.");
+            return null;
+        } catch (IOException | InterruptedException e) {
+            LOG.error("qTest results upload failed", e);
+            Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    // ------------------------------------------------------------ Step 2: attachment
+
+    /** Polls the automation job until it finishes, then searches the response for a Test Run id. */
+    private static String pollJobForTestRunId(String domain, String projectId, long jobId, String token) {
+        String url = "https://%s/api/v3/projects/%s/jobs/%d".formatted(domain, projectId, jobId);
+        for (int attempt = 1; attempt <= JOB_POLL_MAX_ATTEMPTS; attempt++) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Authorization", "Bearer " + token)
+                        .GET()
+                        .build();
+                HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                JsonNode body = MAPPER.readTree(response.body());
+                String state = body.path("state").asText("");
+                LOG.info("qTest job {} poll {}/{}: state='{}', body={}",
+                        jobId, attempt, JOB_POLL_MAX_ATTEMPTS, state, response.body());
+
+                if ("SUCCESS".equalsIgnoreCase(state)) {
+                    return findTestRunId(body);
+                }
+                if ("FAILURE".equalsIgnoreCase(state) || "ERROR".equalsIgnoreCase(state)) {
+                    LOG.error("qTest job {} failed: {}", jobId, response.body());
+                    return null;
+                }
+                Thread.sleep(JOB_POLL_INTERVAL_MS);
+            } catch (IOException | InterruptedException e) {
+                LOG.error("qTest job poll failed", e);
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        LOG.warn("qTest job {} did not finish within {} attempts; giving up on attaching the Extent report.",
+                jobId, JOB_POLL_MAX_ATTEMPTS);
+        return null;
+    }
+
+    /**
+     * Best-effort search of a completed job's response for the created Test Run id.
+     * The exact field name/shape is not confirmed against a live qTest tenant — adjust
+     * this against the real "state=SUCCESS" response body logged by {@link #pollJobForTestRunId}.
+     */
+    private static String findTestRunId(JsonNode job) {
+        JsonNode data = job.path("data");
+        if (data.isArray() && !data.isEmpty()) {
+            data = data.get(0);
+        }
+        if (data.has("id")) {
+            return data.get("id").asText();
+        }
+        if (job.has("testRunId")) {
+            return job.get("testRunId").asText();
+        }
+        return null;
+    }
+
+    private static void attachExtentReport(String domain, String projectId, String testRunId, String token) {
+        Path reportPath = ExtentReportManager.getReportPath();
+        if (!Files.isRegularFile(reportPath)) {
+            LOG.warn("Extent report not found at {}; skipping attachment.", reportPath);
+            return;
+        }
+
+        String url = "https://%s/api/v3/projects/%s/test-runs/%s/blob-handles".formatted(domain, projectId, testRunId);
+        try {
+            byte[] reportBytes = Files.readAllBytes(reportPath);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY)
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(
+                            multipartBody(reportBytes, reportPath.getFileName().toString(), "text/html")))
+                    .build();
+
+            HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 == 2) {
-                LOG.info("Uploaded test results to qTest (HTTP {})", response.statusCode());
+                LOG.info("Attached Extent report to qTest Test Run {} (HTTP {})", testRunId, response.statusCode());
             } else {
-                LOG.error("qTest upload failed: HTTP {} - {}", response.statusCode(), response.body());
+                LOG.error("Attaching Extent report to qTest Test Run {} failed: HTTP {} - {}",
+                        testRunId, response.statusCode(), response.body());
             }
         } catch (IOException | InterruptedException e) {
-            LOG.error("qTest upload failed", e);
+            LOG.error("Attaching Extent report to qTest Test Run {} failed", testRunId, e);
             Thread.currentThread().interrupt();
         }
     }
 
-    private static byte[] buildMultipartBody(String xml, String fileName) throws IOException {
+    private static byte[] multipartBody(byte[] content, String fileName, String contentType) throws IOException {
         String header = "--" + BOUNDARY + "\r\n"
                 + "Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"\r\n"
-                + "Content-Type: application/xml\r\n\r\n";
+                + "Content-Type: " + contentType + "\r\n\r\n";
         String footer = "\r\n--" + BOUNDARY + "--\r\n";
 
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         body.write(header.getBytes(StandardCharsets.UTF_8));
-        body.write(xml.getBytes(StandardCharsets.UTF_8));
+        body.write(content);
         body.write(footer.getBytes(StandardCharsets.UTF_8));
         return body.toByteArray();
     }
