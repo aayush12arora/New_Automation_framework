@@ -29,6 +29,22 @@ The framework is built for this out of the box:
 - To make an *individual* test class single-threaded relative to others, TestNG also
   supports `@Test(singleThreaded = true)` and per-class overrides if needed.
 
+## Retrying failed tests
+Retries are automatic and configurable — test classes never declare a retry analyzer
+themselves. `RetryTransformer` (registered via `@Listeners` on `BaseTest`) attaches
+`RetryAnalyzer` to every `@Test` method; `RetryAnalyzer` reads its behaviour from
+`framework.properties`:
+
+```properties
+retryEnabled=true   # turn retries on/off
+retryCount=2        # max retry attempts after the first failure
+```
+
+Set `retryEnabled=false` to disable retries entirely, or tune `retryCount` per run.
+Each retry re-invokes `@BeforeMethod`/`@AfterMethod` in full, so it gets a fresh
+browser and a fresh Extent report node — useful for genuinely flaky UI steps, not a
+substitute for fixing a consistently failing test.
+
 ## Test categories (groups)
 Tag tests with TestNG `groups` and run only a category — the selected tests still run
 in parallel per the config above.
@@ -85,6 +101,7 @@ framework
 ├── assertions  UIAssertions (hard + soft)
 ├── api         executors/ + validators/ (REST Assured)
 ├── reporting   ExtentReportManager, TestListener
+├── retry       RetryAnalyzer, RetryTransformer
 ├── utilities   PropertyManager, WaitUtils, ScreenshotUtils, JsonUtils, ExcelUtils, StepLogger, LoggerUtil
 ├── data
 │   ├── customer     CustomerData (test-data POJO)

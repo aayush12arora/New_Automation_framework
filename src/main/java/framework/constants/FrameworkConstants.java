@@ -21,6 +21,10 @@ public final class FrameworkConstants {
     public static final String EXPLICIT_WAIT = "explicitWait";
     public static final String SCREENSHOT_EACH_STEP = "screenshotOnEachStep";
 
+    // Retry property keys.
+    public static final String RETRY_ENABLED = "retryEnabled";
+    public static final String RETRY_COUNT = "retryCount";
+
     /** Data-source toggle: {@code json} or {@code excel}. */
     public static final String DATA_SOURCE = "dataSource";
     public static final String DATA_SOURCE_JSON = "json";
