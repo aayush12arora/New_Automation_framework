@@ -29,21 +29,24 @@ import java.util.Map;
  * <p><b>Parallel execution:</b> with {@code parallel="methods"} in {@code testng.xml},
  * TestNG runs the {@code @Test} methods of a class on separate threads but against a
  * single shared instance of that class. A plain instance field would therefore be
- * overwritten across threads, so test data is kept in a {@link ThreadLocal} here,
- * mirroring {@link DriverManager} and {@link ExtentReportManager}.</p>
+ * overwritten across threads. {@link #customerData} is a {@link ThreadLocal} field
+ * itself (not just an internal implementation detail), so tests call
+ * {@code customerData.get()} directly — mirroring {@link DriverManager} and
+ * {@link ExtentReportManager}.</p>
  */
 @Listeners(TestListener.class)
 public abstract class BaseTest extends DriverContext {
 
     protected final Logger log = LoggerUtil.getLogger(getClass());
 
-    private static final ThreadLocal<CustomerData> CUSTOMER_DATA = new ThreadLocal<>();
+    /** Test data for the current thread's test, loaded before it started. Use {@code .get()}. */
+    protected static final ThreadLocal<CustomerData> customerData = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
     public void setUp(Method method) {
         // Create the report node first so every subsequent step is captured.
         ExtentReportManager.createTest(getClass().getSimpleName() + "." + method.getName());
-        CUSTOMER_DATA.set(loadTestData(method.getName()));
+        customerData.set(loadTestData(method.getName()));
         StepLogger.step(log, "=== Test setup: initialising driver ===");
         DriverManager.setDriver();
     }
@@ -53,20 +56,15 @@ public abstract class BaseTest extends DriverContext {
         StepLogger.step(log, "=== Test teardown: quitting driver ===");
         DriverManager.quitDriver();
         ExtentReportManager.remove();
-        CUSTOMER_DATA.remove();
-    }
-
-    /** @return the test data for the current thread's test, loaded before it started. */
-    protected CustomerData getCustomerData() {
-        return CUSTOMER_DATA.get();
+        customerData.remove();
     }
 
     /**
      * Loads the test's data into {@link CustomerData} from JSON or Excel, chosen by
      * the {@code dataSource} property. The data file is named after the test and its
      * attributes (JSON keys / Excel headers) match the {@link CustomerData} fields.
-     * Returns an empty object when no data file exists, so {@link #getCustomerData()}
-     * is always non-null.
+     * Returns an empty object when no data file exists, so {@link #customerData}
+     * always resolves to a non-null value via {@code .get()}.
      */
     private CustomerData loadTestData(String testName) {
         String source = PropertyManager.get(FrameworkConstants.DATA_SOURCE).toLowerCase();

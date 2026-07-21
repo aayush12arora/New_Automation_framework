@@ -19,7 +19,7 @@ runs on its own thread, launching its own browser instance.
 
 The framework is built for this out of the box:
 - `DriverManager` (`ThreadLocal<WebDriver>`), `ExtentReportManager`
-  (`ThreadLocal<ExtentTest>`), `BaseTest.getCustomerData()` (`ThreadLocal<CustomerData>`),
+  (`ThreadLocal<ExtentTest>`), `BaseTest.customerData` (`ThreadLocal<CustomerData>`),
   and `UIAssertions`' soft-assert collector are all thread-local, since TestNG runs a
   class's `@Test` methods on separate threads against **one shared instance** of that
   class under `parallel="methods"`. A plain instance field would be overwritten across
@@ -107,7 +107,12 @@ src/test/resources/testdata/<testMethodName>.json   # test data, named after the
   or `testdata/<testMethodName>.xlsx`.
 - Attribute names match the `CustomerData` fields — JSON keys, or **Excel headers**
   (row 0 = headers, row 1 = data).
-- `BaseTest` loads it via `JsonUtils` / `ExcelUtils` and maps it into thread-local
-  storage **before** the test runs — tests call `getCustomerData()`, never parse
-  files themselves.
-- If no matching file exists, `getCustomerData()` returns an empty (non-null) object.
+- `BaseTest` loads it via `JsonUtils` / `ExcelUtils` and stores it in `customerData`
+  (a `ThreadLocal<CustomerData>`) **before** the test runs — tests call
+  `customerData.get()`, never parse files themselves.
+- If no matching file exists, `customerData.get()` returns an empty (non-null) object.
+- Only the resolved `CustomerData` object (the result of `.get()`) is passed around —
+  e.g. into a Page Object method (`loginPage.login(customerData.get())`). From there
+  it's an ordinary object reference: if a Page Object method needs to forward it to
+  another method or another Page Object, it's just a normal method parameter, no
+  `ThreadLocal` involved beyond that one `.get()` call in the test.

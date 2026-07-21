@@ -12,7 +12,7 @@ import org.testng.annotations.Test;
  *   <li>The application is launched automatically before each test — no
  *       {@code @BeforeMethod} here. The launch URL is set via {@code super(...)}
  *       (omit the constructor to use the URL from {@code framework.properties}).</li>
- *   <li>Test data comes from {@code getCustomerData()} (loaded by BaseTest from
+ *   <li>Test data comes from {@code customerData.get()} (loaded by BaseTest from
  *       {@code testdata/verifyLogin.<json|xlsx>} — the file is named after the test).</li>
  *   <li>No file parsing here and no raw {@code Assert.*} — verification goes through
  *       {@code assertions} (soft asserts are finalised automatically by the framework).</li>
@@ -29,13 +29,13 @@ public class LoginTest extends BaseUITest {
     public void verifyLogin() {
         LoginPage loginPage = new LoginPage();
 
-        // Test data is already available via getCustomerData() (initialised in BaseTest).
-        assertions.softAssertNotNull(getCustomerData().getUsername(), "Username should load from test data");
-        assertions.softAssertNotNull(getCustomerData().getPassword(), "Password should load from test data");
+        // Test data is already available via customerData.get() (initialised in BaseTest).
+        assertions.softAssertNotNull(customerData.get().getUsername(), "Username should load from test data");
+        assertions.softAssertNotNull(customerData.get().getPassword(), "Password should load from test data");
 
         // Against a real login page this is the business flow, passing the whole
-        // CustomerData object rather than pulling out individual fields:
-        // loginPage.login(getCustomerData());
+        // resolved CustomerData object rather than pulling out individual fields:
+        // loginPage.login(customerData.get());
         assertions.softAssertContains(getDriver().getTitle(), "Example", "Page title should contain 'Example'");
     }
 }
