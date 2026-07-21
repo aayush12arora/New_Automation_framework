@@ -1,6 +1,7 @@
 package framework.pages;
 
 import framework.base.BasePage;
+import framework.data.customer.CustomerData;
 import org.openqa.selenium.By;
 
 /**
@@ -32,6 +33,11 @@ public class LoginPage extends BasePage {
         enterUsername(username);
         enterPassword(password);
         clickLogin();
+    }
+
+    /** Convenience overload: logs in using credentials from a {@link CustomerData} object. */
+    public void login(CustomerData customerData) {
+        login(customerData.getUsername(), customerData.getPassword());
     }
 
     public String getErrorMessage() {

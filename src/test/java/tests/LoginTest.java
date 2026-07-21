@@ -33,8 +33,9 @@ public class LoginTest extends BaseUITest {
         assertions.softAssertNotNull(getCustomerData().getUsername(), "Username should load from test data");
         assertions.softAssertNotNull(getCustomerData().getPassword(), "Password should load from test data");
 
-        // Against a real login page this is the business flow:
-        // loginPage.login(getCustomerData().getUsername(), getCustomerData().getPassword());
+        // Against a real login page this is the business flow, passing the whole
+        // CustomerData object rather than pulling out individual fields:
+        // loginPage.login(getCustomerData());
         assertions.softAssertContains(getDriver().getTitle(), "Example", "Page title should contain 'Example'");
     }
 }
