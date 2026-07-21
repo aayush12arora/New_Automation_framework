@@ -17,6 +17,8 @@ import org.testng.annotations.Test;
  *   <li>No file parsing here and no raw {@code Assert.*} — verification goes through
  *       {@code assertions} (soft asserts are finalised automatically by the framework).</li>
  *   <li>Pages are instantiated directly: {@code new LoginPage()}.</li>
+ *   <li>Categorised via {@code @Test(groups = ...)} — run a category with
+ *       {@code mvn test -Dgroups=smoke} (see README "Test categories / groups").</li>
  * </ul>
  */
 public class LoginTest extends BaseUITest {
@@ -25,7 +27,7 @@ public class LoginTest extends BaseUITest {
         super("https://example.com");
     }
 
-    @Test
+    @Test(groups = {"smoke", "regression"})
     public void verifyLogin() {
         LoginPage loginPage = new LoginPage();
 

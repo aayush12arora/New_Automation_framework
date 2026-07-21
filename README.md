@@ -29,6 +29,28 @@ The framework is built for this out of the box:
 - To make an *individual* test class single-threaded relative to others, TestNG also
   supports `@Test(singleThreaded = true)` and per-class overrides if needed.
 
+## Test categories (groups)
+Tag tests with TestNG `groups` and run only a category — the selected tests still run
+in parallel per the config above.
+
+```java
+@Test(groups = {"smoke", "regression"})
+public void verifyLogin() { ... }
+```
+
+Run a category from the command line:
+```bash
+mvn test -Dgroups=smoke              # only tests tagged "smoke"
+mvn test -Dgroups=smoke,regression   # either group
+mvn test -DexcludedGroups=regression # everything except "regression"
+mvn test                             # no filter — runs everything (default)
+```
+
+This is wired through `pom.xml`'s Surefire config (`<groups>${groups}</groups>`,
+`<excludedGroups>${excludedGroups}</excludedGroups>`), which reads the `-Dgroups` /
+`-DexcludedGroups` system properties and applies them on top of `testng.xml` — no
+per-category suite file needed. A test with no group runs unless a filter is passed.
+
 ## Reporting
 - **Extent report:** `target/extent-report/<timestamp>/index.html` — each run gets its
   own timestamped folder. Every step is logged with a screenshot, and a final pass/fail

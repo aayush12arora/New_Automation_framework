@@ -17,6 +17,10 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <!-- Test category filter, e.g. -Dgroups=smoke ; empty runs everything -->
+        <groups></groups>
+        <excludedGroups></excludedGroups>
+
         <!-- Dependency versions (latest stable, Java 21 compatible) -->
         <selenium.version>4.27.0</selenium.version>
         <testng.version>7.10.2</testng.version>
@@ -114,6 +118,8 @@
                     <suiteXmlFiles>
                         <suiteXmlFile>testng.xml</suiteXmlFile>
                     </suiteXmlFiles>
+                    <groups>${groups}</groups>
+                    <excludedGroups>${excludedGroups}</excludedGroups>
                 </configuration>
             </plugin>
         </plugins>
