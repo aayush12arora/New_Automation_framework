@@ -13,6 +13,33 @@ Minimal, modular Selenium 4 + TestNG framework. Firefox is the default browser.
 mvn clean test
 ```
 
+## qTest integration (automatic, no separate command)
+`TestListener.onFinish` builds a JUnit-format XML report directly from the in-memory
+TestNG results and uploads it to qTest's Automation API at the end of every
+`mvn test` — nothing extra to run.
+
+(It's built from live results rather than read back from Surefire's own
+`target/surefire-reports/*.xml`, because Surefire only writes those files *after*
+the whole TestNG run returns control to it — i.e. after `onFinish` has already run.
+Reading them at that point would find nothing, or a stale file from the previous run.)
+
+Enable it in `framework.properties`:
+```properties
+qtestEnabled=true
+qtestDomain=yourcompany.qtestnet.com
+qtestProjectId=12345
+```
+and export the API token as an environment variable — **never put it in
+`framework.properties`**, since that file is committed to source control:
+```bash
+export QTEST_API_TOKEN=<your-token>
+```
+
+When disabled (the default) or when `QTEST_API_TOKEN` isn't set, the upload step
+does nothing and logs why — it never breaks the test run itself. A local copy of
+every generated report is also kept under `target/qtest-reports/` regardless of
+whether the upload succeeds.
+
 ## Parallel execution
 `testng.xml` runs with `parallel="methods" thread-count="3"` — each `@Test` method
 runs on its own thread, launching its own browser instance.
@@ -102,6 +129,7 @@ framework
 ├── api         executors/ + validators/ (REST Assured)
 ├── reporting   ExtentReportManager, TestListener
 ├── retry       RetryAnalyzer, RetryTransformer
+├── qtest       QTestUploader
 ├── utilities   PropertyManager, WaitUtils, ScreenshotUtils, JsonUtils, ExcelUtils, StepLogger, LoggerUtil
 ├── data
 │   ├── customer     CustomerData (test-data POJO)

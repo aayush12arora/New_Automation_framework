@@ -3,6 +3,7 @@ package framework.reporting;
 import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.Status;
 import framework.assertions.UIAssertions;
+import framework.qtest.QTestUploader;
 import framework.utilities.LoggerUtil;
 import framework.utilities.ScreenshotUtils;
 import org.slf4j.Logger;
@@ -19,7 +20,10 @@ import org.testng.ITestResult;
  *       any soft failure into a proper test failure — so tests never call
  *       {@code assertAll()} themselves;</li>
  *   <li>attaches a pass/fail screenshot at the end of each test;</li>
- *   <li>flushes the Extent report once the suite completes.</li>
+ *   <li>flushes the Extent report once the suite completes;</li>
+ *   <li>uploads Surefire's JUnit XML reports to qTest once the suite completes
+ *       (when {@code qtestEnabled=true}), so a plain {@code mvn test} run is
+ *       enough — no separate upload command.</li>
  * </ul>
  *
  * <p>The report node itself is created in {@code BaseTest#setUp} so that
@@ -73,6 +77,7 @@ public class TestListener implements ITestListener, IInvokedMethodListener {
     public void onFinish(ITestContext context) {
         ExtentReportManager.flush();
         LOG.info("Extent report flushed");
+        QTestUploader.uploadIfEnabled(context);
     }
 
     private void attachFinalScreenshot(ITestResult result, Status status, String message) {

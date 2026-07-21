@@ -43,4 +43,14 @@ public final class FrameworkConstants {
 
     /** Classpath directory holding per-test data (file name = test method name). */
     public static final String TESTDATA_DIR = "testdata/";
+
+    // qTest upload property keys. The API token is NOT read from this file —
+    // it comes from the QTEST_API_TOKEN environment variable so it never gets committed.
+    public static final String QTEST_ENABLED = "qtestEnabled";
+    public static final String QTEST_DOMAIN = "qtestDomain";
+    public static final String QTEST_PROJECT_ID = "qtestProjectId";
+    public static final String QTEST_API_TOKEN_ENV_VAR = "QTEST_API_TOKEN";
+
+    /** Local copy of each generated qTest JUnit-XML upload, kept for reference. */
+    public static final String QTEST_REPORT_DIR = "target/qtest-reports";
 }
