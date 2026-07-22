@@ -98,7 +98,7 @@ src/main/java/framework/
 │   ├── RetryAnalyzer.java     IRetryAnalyzer: re-runs a failed @Test up to retryCount (config-gated)
 │   └── RetryTransformer.java  IAnnotationTransformer: auto-attaches RetryAnalyzer to every @Test
 ├── qtest/
-│   └── QTestUploader.java     Builds JUnit XML from live results, uploads to qTest, attaches the Extent report
+│   └── QTestUploader.java     Builds the auto-test-logs JSON from live results, submits to qTest, embeds the Extent report
 ├── utilities/
 │   ├── PropertyManager.java   Loads framework.properties once; get/getBoolean/getInt
 │   ├── WaitUtils.java         Explicit waits (visibility / clickability) — no static sleeps
@@ -183,7 +183,7 @@ mvn test
   ── ONCE, after all methods ───────────────────────────────────────────────────
   7. ITestListener.onFinish()   (TestListener)
        ├─ ExtentReportManager.flush()          → writes the HTML report to disk
-       └─ QTestUploader.uploadIfEnabled(ctx)   → JUnit XML → qTest (+ attach Extent), if enabled
+       └─ QTestUploader.uploadIfEnabled(ctx)   → auto-test-logs JSON → qTest (+ embed Extent), if enabled
 ```
 
 The key insight is that **the test class itself is tiny** — all of the lifecycle
@@ -354,25 +354,32 @@ Group filtering and parallelism are independent, so a filtered subset still runs
 ### 6.9 qTest integration
 
 At the end of a run, `TestListener.onFinish` calls `QTestUploader.uploadIfEnabled(context)`.
-When `qtestEnabled=true` it:
+When `qtestEnabled=true` it implements qTest's documented **Batch Submit Test Logs** endpoint
+(`POST /api/v3/projects/{projectId}/auto-test-logs?type=automation`):
 
-1. **Builds JUnit XML** directly from the in-memory `ITestContext` results (passed/failed/
-   skipped). It builds it from live results rather than reading Surefire's
-   `target/surefire-reports/*.xml`, because Surefire writes those files only **after** the
-   TestNG run returns control — i.e. after `onFinish` has already executed.
-2. **Uploads** the XML to qTest's `auto-test-logs` endpoint using Java's built-in
-   `HttpClient` (no new dependency). That call returns an async **job id**.
-3. **Polls** the job until it reports `SUCCESS`, then searches the response for the created
-   **Test Run id** and **attaches the Extent HTML report** to it.
+1. **Builds a JSON payload** directly from the in-memory `ITestContext` results (built from
+   live results, not from Surefire's `target/surefire-reports/*.xml`, which Surefire writes
+   only **after** the TestNG run returns control — i.e. after `onFinish` has run). The body is
+   a `test_cycle` plus a `test_logs` array; each log carries the required `name`,
+   `automation_content` (a stable per-test fingerprint so re-runs map to the same qTest Test
+   Case), `status` (PASSED/FAILED/SKIPPED), `exe_start_date`, `exe_end_date` and `module_names`.
+2. **Embeds the Extent HTML report** as a base64 `attachments` entry on the first test log —
+   no separate upload call, since attachments are part of the same JSON.
+3. **Submits** it as `Content-Type: application/json` via Java's built-in `HttpClient` (no new
+   dependency). The endpoint is asynchronous: it returns a job `id` + `state`, which is then
+   polled (`queue-processing`) until it reaches `SUCCESS`/`FAILED`.
 
-The token is read from the `QTEST_API_TOKEN` **environment variable** (never committed);
-domain/project id/enable-flag are in `framework.properties`. If disabled or the token is
-missing, the step logs why and does nothing — it never breaks the test run. A local copy of
-the generated XML is kept under `target/qtest-reports/`.
+Config in `framework.properties`: `qtestEnabled`, `qtestDomain`, `qtestProjectId`, and
+`qtestTestCycle` (**required** — the PID/ID of the parent Test Cycle the Test Runs go under).
+The token is read from the `QTEST_API_TOKEN` **environment variable** (never committed). If
+disabled, the token is missing, or `qtestTestCycle` is blank, the step logs why and does
+nothing — it never breaks the test run. A local copy of the JSON payload is kept under
+`target/qtest-reports/` for debugging.
 
-> The attachment (step 3) is best-effort: it was written without a live qTest tenant, so the
-> exact job-response shape and attachment endpoint may differ per version. Every request and
-> response is logged in full so the field extraction can be corrected against real output.
+> Everything here is best-effort and fully logged (request + response at each step). The
+> submission body matches qTest's published spec exactly; the job-status poll uses the
+> `queue-processing` endpoint, which may differ per tenant — if so, the submission still
+> succeeds and only the poll line logs the discrepancy.
 
 ### 6.10 Database & API validation
 
@@ -411,6 +418,7 @@ db.password=root
 qtestEnabled=false                     # publish results to qTest at end of run
 qtestDomain=yourcompany.qtestnet.com
 qtestProjectId=12345
+qtestTestCycle=                         # REQUIRED: PID/ID of the parent Test Cycle (e.g. CY-1)
 # QTEST_API_TOKEN is an ENVIRONMENT VARIABLE, never a property — keeps the token out of git
 ```
 
@@ -558,12 +566,15 @@ qtestProjectId=12345
 **Integrations**
 
 29. **How are results published to qTest automatically?**
-    `TestListener.onFinish` → `QTestUploader`: build JUnit XML from the in-memory results,
-    POST to qTest's `auto-test-logs` (via `HttpClient`), poll the returned job, then attach the
-    Extent report to the created Test Run. Gated by `qtestEnabled`; token comes from an env var.
+    `TestListener.onFinish` → `QTestUploader`: build the auto-test-logs JSON body from the
+    in-memory results (a `test_cycle` + `test_logs` array with `name`/`automation_content`/
+    `status`/`exe_start_date`/`exe_end_date`/`module_names`), embed the Extent report as a
+    base64 attachment, POST it as `application/json` to
+    `/api/v3/projects/{id}/auto-test-logs?type=automation` via `HttpClient`, then poll the
+    async job. Gated by `qtestEnabled`; token comes from the `QTEST_API_TOKEN` env var.
 
-30. **Why build the JUnit XML yourself instead of uploading Surefire's XML file?**
+30. **Why build the payload from `ITestContext` instead of uploading Surefire's XML file?**
     Surefire writes its `target/surefire-reports/*.xml` only *after* the TestNG run hands
     control back — which is after `onFinish` runs. Reading it there would find nothing or a
-    stale file, so the uploader builds the XML from the live `ITestContext` results instead.
+    stale file, so the uploader builds the payload from the live `ITestContext` results instead.
 ```

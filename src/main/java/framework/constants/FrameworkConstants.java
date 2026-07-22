@@ -49,8 +49,10 @@ public final class FrameworkConstants {
     public static final String QTEST_ENABLED = "qtestEnabled";
     public static final String QTEST_DOMAIN = "qtestDomain";
     public static final String QTEST_PROJECT_ID = "qtestProjectId";
+    /** PID or ID of the parent Test Cycle in qTest where submitted Test Runs are created (required by the API). */
+    public static final String QTEST_TEST_CYCLE = "qtestTestCycle";
     public static final String QTEST_API_TOKEN_ENV_VAR = "QTEST_API_TOKEN";
 
-    /** Local copy of each generated qTest JUnit-XML upload, kept for reference. */
+    /** Local copy of each generated qTest JSON payload, kept for reference/debugging. */
     public static final String QTEST_REPORT_DIR = "target/qtest-reports";
 }
