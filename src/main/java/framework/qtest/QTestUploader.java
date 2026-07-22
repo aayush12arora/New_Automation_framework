@@ -53,7 +53,9 @@ import java.util.Set;
 public final class QTestUploader {
 
     private static final Logger LOG = LoggerUtil.getLogger(QTestUploader.class);
-    private static final String BOUNDARY = "----FrameworkQTestBoundary";
+    // Plain alphanumeric boundary (no leading dashes baked into the token itself) for
+    // maximum compatibility with strict server-side multipart parsers.
+    private static final String BOUNDARY = "FrameworkQTestBoundary7f3a9c";
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
@@ -189,15 +191,17 @@ public final class QTestUploader {
     /** @return the qTest job id from the response, or {@code null} if the call itself failed. */
     private static Long uploadJunitXml(String xml, String fileName, String domain, String projectId, String token) {
         String url = "https://%s/api/v3/projects/%s/auto-test-logs?type=junit".formatted(domain, projectId);
+        String contentType = "multipart/form-data; boundary=" + BOUNDARY;
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + token)
-                    .header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY)
+                    .header("Content-Type", contentType)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(
                             multipartBody(xml.getBytes(StandardCharsets.UTF_8), fileName, "application/xml")))
                     .build();
 
+            LOG.info("qTest auto-test-logs request: POST {} | Content-Type: {}", url, contentType);
             HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
             LOG.info("qTest auto-test-logs response: HTTP {} - {}", response.statusCode(), response.body());
 
@@ -282,16 +286,18 @@ public final class QTestUploader {
         }
 
         String url = "https://%s/api/v3/projects/%s/test-runs/%s/blob-handles".formatted(domain, projectId, testRunId);
+        String contentType = "multipart/form-data; boundary=" + BOUNDARY;
         try {
             byte[] reportBytes = Files.readAllBytes(reportPath);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + token)
-                    .header("Content-Type", "multipart/form-data; boundary=" + BOUNDARY)
+                    .header("Content-Type", contentType)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(
                             multipartBody(reportBytes, reportPath.getFileName().toString(), "text/html")))
                     .build();
 
+            LOG.info("qTest attachment request: POST {} | Content-Type: {}", url, contentType);
             HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 == 2) {
                 LOG.info("Attached Extent report to qTest Test Run {} (HTTP {})", testRunId, response.statusCode());
