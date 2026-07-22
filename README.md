@@ -32,6 +32,7 @@ test categorisation, database/API validation, and results publishing to qTest.
    - [6.8 Test categories (groups)](#68-test-categories-groups)
    - [6.9 qTest integration](#69-qtest-integration)
    - [6.10 Database & API validation](#610-database--api-validation)
+   - [6.11 CI/CD (GitHub Actions)](#611-cicd-github-actions)
 7. [Configuration reference (`framework.properties`)](#7-configuration-reference)
 8. [30 questions you could be asked (with answers)](#8-30-questions-you-could-be-asked)
 
@@ -390,6 +391,31 @@ nothing — it never breaks the test run. A local copy of the JSON payload is ke
 - **`ApiExecutor`** wraps REST Assured `GET`/`POST`; **`ApiValidator`** offers `hasStatus`
   and `bodyContains`. These let a test mix UI and API steps (e.g. set up data via API, verify
   via UI, confirm via DB).
+
+### 6.11 CI/CD (GitHub Actions)
+
+GitHub Actions runs the tests on its own cloud runners — it *is* the CI tool, nothing else
+(Jenkins etc.) is required. Three workflows under `.github/workflows/`:
+
+| Workflow | Trigger | Command |
+|---|---|---|
+| `pr-tests.yml` | every PR opened/updated (`on: pull_request`) | `mvn test -Dheadless=true` (full suite) |
+| `daily-smoke.yml` | daily cron `0 2 * * *` | `mvn test -Dgroups=smoke -Dheadless=true` |
+| `alternate-day-regression.yml` | cron `0 3 */2 * *` (odd days) | `mvn test -Dgroups=regression -Dheadless=true` |
+
+Each job: checkout → set up JDK 21 (Temurin) + Maven cache → install Firefox → run headless →
+upload the Extent report as a build artifact.
+
+- **Headless in CI:** runners have no display, so the workflows pass `-Dheadless=true`.
+  `PropertyManager` treats a JVM system property as an **override** of `framework.properties`,
+  so any setting can be changed per-run (`-Dbrowser=chrome`, `-DqtestTestCycle=CY-1`, …) with
+  no file edit. Surefire forwards command-line `-D` properties into the forked test JVM.
+- **qTest secret:** add `QTEST_API_TOKEN` under *Settings → Secrets and variables → Actions*;
+  the workflows pass it as an env var. If it (or `qtestTestCycle`) is unset the upload skips
+  harmlessly — it never fails the build.
+- **Alternate-day caveat:** cron can't express "every 48h", so regression runs on odd days of
+  the month; the gap resets at month boundaries (31st → 1st are consecutive).
+- Scheduled workflows only run on the repository's **default branch**.
 
 ---
 

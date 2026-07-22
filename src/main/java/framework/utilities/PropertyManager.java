@@ -36,7 +36,16 @@ public final class PropertyManager {
         }
     }
 
+    /**
+     * Returns a configuration value. A matching JVM system property ({@code -Dkey=value})
+     * takes precedence over the file, so CI can override any setting without editing
+     * {@code framework.properties} (e.g. {@code mvn test -Dheadless=true -Dbrowser=chrome}).
+     */
     public static String get(String key) {
+        String override = System.getProperty(key);
+        if (override != null && !override.isBlank()) {
+            return override.trim();
+        }
         String value = PROPERTIES.getProperty(key);
         if (value == null) {
             throw new IllegalArgumentException("Missing property: " + key);

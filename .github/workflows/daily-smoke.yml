@@ -1,0 +1,37 @@
+name: Daily Smoke Tests
+
+# Runs the "smoke" group once a day. Scheduled workflows run on the default branch.
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC every day
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Firefox
+        uses: browser-actions/setup-firefox@v1
+
+      - name: Run smoke tests (headless)
+        env:
+          QTEST_API_TOKEN: ${{ secrets.QTEST_API_TOKEN }}
+        run: mvn -B --no-transfer-progress clean test -Dgroups=smoke -Dheadless=true
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extent-report-smoke-${{ github.run_id }}
+          path: target/extent-report/
+          if-no-files-found: ignore
