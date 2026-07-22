@@ -97,7 +97,7 @@ src/main/java/framework/
 │   └── TestListener.java      ITestListener + IInvokedMethodListener: soft-assert finalise, screenshots, flush, qTest
 ├── retry/
 │   ├── RetryAnalyzer.java     IRetryAnalyzer: re-runs a failed @Test up to retryCount (config-gated)
-│   └── RetryTransformer.java  IAnnotationTransformer: auto-attaches RetryAnalyzer to every @Test
+│   └── RetryTransformer.java  IAnnotationTransformer: auto-attaches RetryAnalyzer (registered via META-INF/services)
 ├── qtest/
 │   └── QTestUploader.java     Builds the auto-test-logs JSON from live results, submits to qTest, embeds the Extent report
 ├── utilities/
@@ -147,7 +147,7 @@ mvn test
   └─ Surefire reads pom.xml → runs testng.xml (parallel="methods", thread-count=3)
 
   ── ONCE, at annotation-reading time ──────────────────────────────────────────
-  RetryTransformer.transform(...)          ← @Listeners on BaseTest registers it
+  RetryTransformer.transform(...)          ← registered via META-INF/services (ServiceLoader)
       → annotation.setRetryAnalyzer(RetryAnalyzer.class)   for EVERY @Test method
 
   ── PER @Test METHOD, on its own thread ───────────────────────────────────────
@@ -200,7 +200,7 @@ listeners, so a test author only writes locators, business methods, and assertio
 | `@Test` | `LoginTest` | Marks a test method. `groups = {"smoke","regression"}` categorises it. |
 | `@BeforeMethod(alwaysRun = true)` | `BaseTest.setUp`, `BaseUITest.launchApplication` | Runs before **every** `@Test`. `alwaysRun=true` means it still runs even if a group filter or a prior config would otherwise skip it. Superclass `@BeforeMethod` runs before subclass. |
 | `@AfterMethod(alwaysRun = true)` | `BaseTest.tearDown` | Runs after every `@Test` (even on failure) to quit the driver and clear thread-locals. |
-| `@Listeners({TestListener.class, RetryTransformer.class})` | `BaseTest` | Registers both listeners for every subclass, so they apply whether you run from the IDE or `testng.xml`. This is why `testng.xml` has no `<listeners>` block. |
+| `@Listeners(TestListener.class)` | `BaseTest` | Registers the reporting/soft-assert listener for every subclass, so it applies whether you run from the IDE or `testng.xml`. This is why `testng.xml` has no `<listeners>` block. (`RetryTransformer` is **not** here — see below.) |
 | `@Override` | listeners | Standard override of TestNG interface methods. |
 | `@JsonIgnoreProperties(ignoreUnknown = true)` | `CustomerData` | Jackson annotation — ignore JSON keys with no matching field, so one POJO can back many data files. |
 
@@ -211,7 +211,7 @@ TestNG **interfaces** implemented (not annotations, but part of the extension mo
 | `ITestListener` | `TestListener` | `onTestSuccess/Failure/Skipped`, `onFinish` — reporting hooks. |
 | `IInvokedMethodListener` | `TestListener` | `afterInvocation` — finalise soft assertions right after the test body. |
 | `IRetryAnalyzer` | `RetryAnalyzer` | `retry()` — decides whether a failed test re-runs. |
-| `IAnnotationTransformer` | `RetryTransformer` | `transform()` — mutates the `@Test` annotation at load time to attach the retry analyzer. |
+| `IAnnotationTransformer` | `RetryTransformer` | `transform()` — mutates the `@Test` annotation at load time to attach the retry analyzer. Registered via `META-INF/services/org.testng.ITestNGListener` (ServiceLoader), **not** `@Listeners` — a transformer must load *before* TestNG reads `@Test` annotations, and `@Listeners` on a test class is discovered too late, so the analyzer would never attach and retries would silently not happen. |
 
 ---
 
@@ -322,10 +322,20 @@ any test:
   `@Test` at annotation-reading time and calls `annotation.setRetryAnalyzer(RetryAnalyzer.class)`.
   This is what removes the need to write `@Test(retryAnalyzer = …)` on every method.
 
-`RetryTransformer` is registered by the same `@Listeners` on `BaseTest`. So the flow is:
-transformer attaches the analyzer to all tests → a test fails → TestNG asks the analyzer →
-if config allows, the **whole method re-runs from `@BeforeMethod`** (fresh browser, fresh
-report node, fresh data). Set `retryEnabled=false` to turn it all off.
+`RetryTransformer` is registered via `META-INF/services/org.testng.ITestNGListener`
+(ServiceLoader), **not** `@Listeners`. This matters: an `IAnnotationTransformer` has to be
+active *before* TestNG reads the `@Test` annotations it mutates, but `@Listeners` on a test
+class is itself discovered during that same annotation-reading phase — too late. Registering
+the transformer through `@Listeners` is a classic silent-failure: everything compiles and the
+listener "registers", but the analyzer is never attached, so **failing tests just don't
+retry**. ServiceLoader loads it up front, from anywhere on the classpath, in both IDE and
+Maven runs.
+
+So the flow is: transformer attaches the analyzer to all tests → a test fails → TestNG asks
+the analyzer → if config allows, the **whole method re-runs from `@BeforeMethod`** (fresh
+browser, fresh report node, fresh data). This works for both hard-assertion/exception failures
+and soft-assertion failures (the latter promoted to a failure in `afterInvocation`, which
+still occurs in time for the retry decision). Set `retryEnabled=false` to turn it all off.
 
 ### 6.7 Parallel execution & thread-safety
 
@@ -559,8 +569,10 @@ qtestTestCycle=                         # REQUIRED: PID/ID of the parent Test Cy
 
 22. **How is the retry analyzer integrated without editing every test?**
     `RetryTransformer` (an `IAnnotationTransformer`) calls `setRetryAnalyzer` on every `@Test`
-    at load time. It's registered via `@Listeners` on `BaseTest`, so no test declares a retry
-    analyzer.
+    at load time, so no test declares a retry analyzer. It is registered via
+    `META-INF/services/org.testng.ITestNGListener` (ServiceLoader), **not** `@Listeners` —
+    a transformer must be active before TestNG reads the `@Test` annotations, and `@Listeners`
+    on a test class loads too late, which silently prevents any retry from happening.
 
 23. **How is retry made configurable?**
     `RetryAnalyzer.retry()` reads `retryEnabled` and `retryCount` from `framework.properties`

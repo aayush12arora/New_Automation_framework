@@ -4,7 +4,6 @@ import framework.constants.FrameworkConstants;
 import framework.data.customer.CustomerData;
 import framework.reporting.ExtentReportManager;
 import framework.reporting.TestListener;
-import framework.retry.RetryTransformer;
 import framework.utilities.ExcelUtils;
 import framework.utilities.JsonUtils;
 import framework.utilities.LoggerUtil;
@@ -25,9 +24,12 @@ import java.util.Map;
  *
  * <p>The {@link TestListener} is registered here so reporting/soft-assert handling
  * applies to every test regardless of how it is launched (IDE or {@code testng.xml}).
- * {@link RetryTransformer} auto-attaches the configurable retry analyzer to every
- * {@code @Test} method the same way, so test classes never wire either one up
- * themselves. Inherits {@link #getDriver()} from {@link DriverContext}.</p>
+ * The retry analyzer is attached by {@code framework.retry.RetryTransformer}, which is
+ * registered via {@code META-INF/services/org.testng.ITestNGListener} (ServiceLoader),
+ * NOT via {@code @Listeners}: an {@link org.testng.IAnnotationTransformer} must be
+ * loaded before TestNG reads the {@code @Test} annotations, and {@code @Listeners} on a
+ * test class is itself discovered too late in that phase to attach the analyzer.
+ * Inherits {@link #getDriver()} from {@link DriverContext}.</p>
  *
  * <p><b>Parallel execution:</b> with {@code parallel="methods"} in {@code testng.xml},
  * TestNG runs the {@code @Test} methods of a class on separate threads but against a
@@ -37,7 +39,7 @@ import java.util.Map;
  * {@code customerData.get()} directly — mirroring {@link DriverManager} and
  * {@link ExtentReportManager}.</p>
  */
-@Listeners({TestListener.class, RetryTransformer.class})
+@Listeners(TestListener.class)
 public abstract class BaseTest extends DriverContext {
 
     protected final Logger log = LoggerUtil.getLogger(getClass());
