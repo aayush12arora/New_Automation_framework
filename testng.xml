@@ -7,7 +7,7 @@
          parallel="methods": each @Test method runs on its own thread, even
          within the same class, so the driver, report node and test data must
          all be thread-local — DriverManager, ExtentReportManager and
-         BaseTest.getCustomerData() are all ThreadLocal-backed for this reason.
+         BaseTest.customerData are all ThreadLocal-backed for this reason.
 
          thread-count: how many @Test methods run concurrently. Each thread
          launches its own browser instance, so keep this in line with the

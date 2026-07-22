@@ -21,9 +21,9 @@ import org.testng.ITestResult;
  *       {@code assertAll()} themselves;</li>
  *   <li>attaches a pass/fail screenshot at the end of each test;</li>
  *   <li>flushes the Extent report once the suite completes;</li>
- *   <li>uploads Surefire's JUnit XML reports to qTest once the suite completes
- *       (when {@code qtestEnabled=true}), so a plain {@code mvn test} run is
- *       enough — no separate upload command.</li>
+ *   <li>builds a JUnit XML report from the in-memory results and uploads it to
+ *       qTest once the suite completes (when {@code qtestEnabled=true}), so a
+ *       plain {@code mvn test} run is enough — no separate upload command.</li>
  * </ul>
  *
  * <p>The report node itself is created in {@code BaseTest#setUp} so that
