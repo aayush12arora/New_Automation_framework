@@ -65,13 +65,33 @@ public final class QTestUploader {
         // Prevent instantiation.
     }
 
+    /**
+     * Trims stray whitespace and strips a leading {@code "Bearer "} if present, since qTest's
+     * "Resources" page exposes several token fields (Token / Bearer Token / Master token) and
+     * it isn't obvious in advance whether the copied value already includes the scheme prefix.
+     * Every call site adds exactly one {@code "Bearer "} itself, so this avoids sending a
+     * doubled-up {@code "Bearer Bearer <token>"} header, which qTest would reject.
+     *
+     * @return the normalized token, or {@code null} if unset/blank
+     */
+    private static String normalizeToken(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return null;
+        }
+        String trimmed = rawToken.trim();
+        if (trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            trimmed = trimmed.substring(7).trim();
+        }
+        return trimmed;
+    }
+
     /** Builds a JUnit XML report from {@code context} and uploads it, if {@code qtestEnabled=true}. */
     public static void uploadIfEnabled(ITestContext context) {
         if (!PropertyManager.getBoolean(FrameworkConstants.QTEST_ENABLED)) {
             return;
         }
-        String token = System.getenv(FrameworkConstants.QTEST_API_TOKEN_ENV_VAR);
-        if (token == null || token.isBlank()) {
+        String token = normalizeToken(System.getenv(FrameworkConstants.QTEST_API_TOKEN_ENV_VAR));
+        if (token == null) {
             LOG.error("qTest upload skipped: {} environment variable is not set",
                     FrameworkConstants.QTEST_API_TOKEN_ENV_VAR);
             return;
