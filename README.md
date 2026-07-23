@@ -87,7 +87,7 @@ src/main/java/framework/
 │   ├── DriverManager.java     Owns the ThreadLocal<WebDriver>; setDriver/getDriver/quitDriver; browser factory
 │   ├── BaseTest.java          Common root (UI + API): report node + data + listeners; NO driver
 │   ├── BaseUITest.java        extends BaseTest; adds WebDriver + auto app-launch (UI tests)
-│   ├── BaseApiTest.java       extends BaseTest; adds WireMock + API data, no driver (API tests)
+│   ├── BaseApiTest.java       extends BaseTest; thin API base (no driver, no WebDriver)
 │   └── BasePage.java          Parent of all Page Objects: logged Selenium wrappers (click, type, wait, …)
 ├── pages/
 │   └── LoginPage.java         Sample Page Object: locators + business methods only
@@ -110,14 +110,14 @@ src/main/java/framework/
 │   ├── StepLogger.java        One call that logs to SLF4J AND the Extent report (with screenshot)
 │   └── LoggerUtil.java        Thin SLF4J LoggerFactory wrapper
 ├── data/
-│   ├── customer/CustomerData.java   Test-data POJO (username, password, firstName, lastName, email)
+│   ├── customer/CustomerData.java   Single test-data POJO for UI + API (login fields + projectId, testSuiteId, …)
 │   ├── database/DatabaseConnection.java  Opens JDBC connections from properties
 │   ├── database/DatabaseValidator.java   querySingleValue / recordExists / rowCount
 │   ├── environment/          (placeholder for environment configs)
 │   └── pojo/                 (placeholder for other POJOs)
 ├── api/                        API automation layer (clubbed with UI in one framework)
-│   ├── config/ApiConfig.java        base URI + mock/live mode
-│   ├── auth/TokenManager.java       bearer token from QE_API_TOKEN env var (dummy in mock)
+│   ├── config/ApiConfig.java        base URI of the system under test
+│   ├── auth/TokenManager.java       bearer token from QE_API_TOKEN env var
 │   ├── logging/ApiLogFilter.java    logs request/response + timing to logs + Extent, token MASKED
 │   ├── executors/ApiExecutor.java   auth-aware base client (authed / withToken / noAuth)
 │   ├── client/HomeClient.java       typed endpoint methods (one client per API group)
@@ -164,7 +164,7 @@ mvn test
   2. @BeforeMethod  BaseUITest.launchApplication()  (subclass runs after)
        ├─ DriverManager.setDriver()                                 → ThreadLocal<WebDriver>
        └─ getDriver().get(url)   (url from super("...") or framework.properties)
-       (API tests instead run BaseApiTest.apiSetUp → load apiData + reset WireMock; no driver)
+       (API tests skip this step entirely — BaseApiTest adds no driver)
 
   3. @Test  LoginTest.verifyLogin()
        ├─ new LoginPage()                    (no driver passed in — inherits getDriver())
@@ -204,7 +204,7 @@ listeners, so a test author only writes locators, business methods, and assertio
 | Annotation | Where | What it does here |
 |---|---|---|
 | `@Test` | `LoginTest` | Marks a test method. `groups = {"smoke","regression"}` categorises it. |
-| `@BeforeMethod(alwaysRun = true)` | `BaseTest.baseSetUp` (report node + data), `BaseUITest.launchApplication` (driver + navigate), `BaseApiTest.apiSetUp` (apiData + WireMock) | Runs before **every** `@Test`. `alwaysRun=true` means it still runs even under a group filter. Superclass `@BeforeMethod` runs before subclass, so the report node exists before UI/API setup. |
+| `@BeforeMethod(alwaysRun = true)` | `BaseTest.baseSetUp` (report node + data), `BaseUITest.launchApplication` (driver + navigate) | Runs before **every** `@Test`. `alwaysRun=true` means it still runs even under a group filter. Superclass `@BeforeMethod` runs before subclass, so the report node exists before UI/API setup. |
 | `@AfterMethod(alwaysRun = true)` | `BaseTest.tearDown` | Runs after every `@Test` (even on failure) to quit the driver and clear thread-locals. |
 | `@Listeners(TestListener.class)` | `BaseTest` | Registers the reporting/soft-assert listener for every subclass, so it applies whether you run from the IDE or `testng.xml`. This is why `testng.xml` has no `<listeners>` block. (`RetryTransformer` is **not** here — see below.) |
 | `@Override` | listeners | Standard override of TestNG interface methods. |
@@ -248,7 +248,7 @@ once. A singleton would share one browser across threads and corrupt every sessi
 DriverContext            getDriver()  (the ONLY place tests/pages reach the driver)
 ├── BaseTest             driver-free lifecycle: report node + data + @Listeners
 │   ├── BaseUITest       adds WebDriver + app launch     → LoginTest   (UI)
-│   └── BaseApiTest      adds WireMock + API data (no driver) → GetTestSuitesTest (API)
+│   └── BaseApiTest      thin API base, no driver          → GetTestSuitesTest (API)
 └── BasePage            logged Selenium wrappers          → LoginPage
 ```
 

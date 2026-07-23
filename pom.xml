@@ -33,7 +33,6 @@
         <commons-lang3.version>3.17.0</commons-lang3.version>
         <poi.version>5.3.0</poi.version>
         <log4j.version>2.24.3</log4j.version>
-        <wiremock.version>3.9.2</wiremock.version>
 
         <!-- Plugin versions -->
         <surefire.version>3.5.2</surefire.version>
@@ -106,14 +105,6 @@
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-to-slf4j</artifactId>
             <version>${log4j.version}</version>
-        </dependency>
-
-        <!-- API mocking (WireMock) for consistent local/CI runs without the live env.
-             Standalone (shaded) jar avoids Jetty/Jackson clashes with REST Assured. -->
-        <dependency>
-            <groupId>org.wiremock</groupId>
-            <artifactId>wiremock-standalone</artifactId>
-            <version>${wiremock.version}</version>
         </dependency>
     </dependencies>
 
