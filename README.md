@@ -115,14 +115,15 @@ src/main/java/framework/
 │   ├── database/DatabaseValidator.java   querySingleValue / recordExists / rowCount
 │   ├── environment/          (placeholder for environment configs)
 │   └── pojo/                 (placeholder for other POJOs)
-├── api/                        API automation layer (clubbed with UI in one framework)
+├── api/                        API automation layer (clubbed with UI; conventions mirror
+│   │                           the reference framework: services + typed models + filter)
+│   ├── base/BaseService.java        RestAssured wrapper: baseUri, setAuthToken, get/post/put/delete
+│   ├── services/HomePageService.java  domain service extends BaseService (one per API group)
+│   ├── models/response/*.java       typed response POJOs (response.as(...)); models/request/ for bodies
+│   ├── filters/LoggingFilter.java   logs request/response + timing to logs + Extent, token MASKED
 │   ├── config/ApiConfig.java        base URI of the system under test
 │   ├── auth/TokenManager.java       bearer token from QE_API_TOKEN env var
-│   ├── logging/ApiLogFilter.java    logs request/response + timing to logs + Extent, token MASKED
-│   ├── executors/ApiExecutor.java   auth-aware base client (authed / withToken / noAuth)
-│   ├── client/HomeClient.java       typed endpoint methods (one client per API group)
-│   ├── constants/ApiEndpoints.java  all ~21 endpoint paths from the OpenAPI spec
-│   └── validators/ApiValidator.java hasStatus / bodyContains
+│   └── constants/ApiEndpoints.java  all ~21 endpoint paths from the OpenAPI spec
 └── constants/
     └── FrameworkConstants.java  All property keys and paths in one place
 
