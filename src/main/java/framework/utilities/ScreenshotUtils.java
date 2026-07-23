@@ -30,6 +30,9 @@ public final class ScreenshotUtils {
      * @return absolute path of the saved screenshot, or {@code null} if capture failed
      */
     public static String capture(String name) {
+        if (!DriverManager.isDriverInitialized()) {
+            return null;   // API tests have no browser — nothing to capture
+        }
         File source = ((TakesScreenshot) DriverManager.getDriver()).getScreenshotAs(OutputType.FILE);
         String fileName = "%s_%s.png".formatted(name, LocalDateTime.now().format(TIMESTAMP));
         File destination = new File(FrameworkConstants.SCREENSHOT_DIR, fileName);

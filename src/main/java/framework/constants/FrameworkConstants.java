@@ -55,4 +55,15 @@ public final class FrameworkConstants {
 
     /** Local copy of each generated qTest JSON payload, kept for reference/debugging. */
     public static final String QTEST_REPORT_DIR = "target/qtest-reports";
+
+    // API testing property keys. The bearer token is NOT read from this file — it comes
+    // from the QE_API_TOKEN environment variable so it is never committed.
+    public static final String API_BASE_URL = "api.baseUrl";
+    public static final String API_MODE = "api.mode";           // mock | live
+    public static final String API_MOCK_PORT = "api.mockPort";
+    public static final String API_MODE_MOCK = "mock";
+    public static final String API_TOKEN_ENV_VAR = "QE_API_TOKEN";
+
+    /** Classpath location of the shared API test-data file (JSON or Excel). */
+    public static final String API_TESTDATA = "testdata/apiTestData";
 }
