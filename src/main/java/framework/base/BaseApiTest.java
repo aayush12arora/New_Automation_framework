@@ -3,45 +3,32 @@ package framework.base;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import framework.api.config.ApiConfig;
-import framework.assertions.UIAssertions;
 import framework.constants.FrameworkConstants;
 import framework.data.api.ApiTestData;
-import framework.reporting.ExtentReportManager;
-import framework.reporting.TestListener;
 import framework.utilities.ExcelUtils;
 import framework.utilities.JsonUtils;
-import framework.utilities.LoggerUtil;
 import framework.utilities.PropertyManager;
-import org.slf4j.Logger;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Listeners;
 
-import java.lang.reflect.Method;
 import java.util.Map;
 
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 
 /**
- * Base class for API tests — the API-side sibling of {@link BaseTest}. It reuses all the
- * shared framework infrastructure (Extent reporting via {@link TestListener}, soft-assert
- * finalisation, retry, {@link UIAssertions}, config, Excel/JSON test data) but does
- * <b>not</b> create a WebDriver, since these tests hit HTTP endpoints, not a browser.
+ * Base class for API tests — the API-side sibling of {@link BaseUITest}. It extends
+ * {@link BaseTest}, so it inherits the shared lifecycle (Extent report node, data loading,
+ * {@code TestListener}, soft-assert finalisation, retry, {@link #assertions}) but adds
+ * <b>no</b> WebDriver: these tests hit HTTP endpoints, not a browser.
  *
- * <p>In {@code mock} mode it starts a WireMock server for the test class and resets its stubs
- * before each test, so the suite runs green with no live environment. Mock-based test classes
- * should be annotated {@code @Test(singleThreaded = true)} so parallel methods don't clobber
- * each other's stubs on the shared server.</p>
+ * <p>On top of the inherited lifecycle it loads shared API test data and, in {@code mock} mode,
+ * runs a WireMock server for the test class (started once per class, stubs reset before each
+ * test) so the suite runs green with no live environment. Mock-based test classes should be
+ * annotated {@code @Test(singleThreaded = true)} so parallel methods don't clobber each other's
+ * stubs on the shared server.</p>
  */
-@Listeners(TestListener.class)
-public abstract class BaseApiTest {
-
-    protected final Logger log = LoggerUtil.getLogger(getClass());
-
-    /** Assertion helper (hard + soft), shared with the UI side. */
-    protected final UIAssertions assertions = new UIAssertions();
+public abstract class BaseApiTest extends BaseTest {
 
     /** Shared API test data loaded before each test — read values, never hard-code them. */
     protected ApiTestData apiData;
@@ -66,18 +53,13 @@ public abstract class BaseApiTest {
         }
     }
 
+    /** Runs after {@link BaseTest#baseSetUp} (report node already created). */
     @BeforeMethod(alwaysRun = true)
-    public void apiSetUp(Method method) {
-        ExtentReportManager.createTest(getClass().getSimpleName() + "." + method.getName());
+    public void apiSetUp() {
         apiData = loadApiData();
         if (ApiConfig.isMock() && wireMockServer != null) {
             WireMock.reset();
         }
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void apiTearDown() {
-        ExtentReportManager.remove();
     }
 
     /** @return {@code true} if running against WireMock rather than the live server. */

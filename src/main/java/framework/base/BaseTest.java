@@ -1,5 +1,6 @@
 package framework.base;
 
+import framework.assertions.UIAssertions;
 import framework.constants.FrameworkConstants;
 import framework.data.customer.CustomerData;
 import framework.reporting.ExtentReportManager;
@@ -8,7 +9,6 @@ import framework.utilities.ExcelUtils;
 import framework.utilities.JsonUtils;
 import framework.utilities.LoggerUtil;
 import framework.utilities.PropertyManager;
-import framework.utilities.StepLogger;
 import org.slf4j.Logger;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -18,58 +18,50 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
- * Root test class. Owns only framework initialisation:
- * report node, test data and driver creation before each test, teardown after.
- * UI- or API-specific setup belongs in subclasses.
+ * Common root for <b>all</b> tests — UI ({@link BaseUITest}) and API ({@link BaseApiTest}).
+ * Owns only the driver-independent lifecycle: creating the per-test Extent report node,
+ * loading shared test data, and clearing both afterwards. It deliberately does <b>not</b>
+ * create a WebDriver — that belongs to {@link BaseUITest}, so API tests inherit this class
+ * without launching a browser.
  *
- * <p>The {@link TestListener} is registered here so reporting/soft-assert handling
- * applies to every test regardless of how it is launched (IDE or {@code testng.xml}).
- * The retry analyzer is attached by {@code framework.retry.RetryTransformer}, which is
- * registered via {@code META-INF/services/org.testng.ITestNGListener} (ServiceLoader),
- * NOT via {@code @Listeners}: an {@link org.testng.IAnnotationTransformer} must be
- * loaded before TestNG reads the {@code @Test} annotations, and {@code @Listeners} on a
- * test class is itself discovered too late in that phase to attach the analyzer.
- * Inherits {@link #getDriver()} from {@link DriverContext}.</p>
+ * <p>The {@link TestListener} is registered here so reporting/soft-assert handling applies to
+ * every test (UI and API) regardless of how it is launched. The retry analyzer is attached by
+ * {@code framework.retry.RetryTransformer} via {@code META-INF/services} (ServiceLoader), not
+ * {@code @Listeners} — see that class for why. Inherits {@link #getDriver()} from
+ * {@link DriverContext} (used by UI tests; API tests simply never call it).</p>
  *
- * <p><b>Parallel execution:</b> with {@code parallel="methods"} in {@code testng.xml},
- * TestNG runs the {@code @Test} methods of a class on separate threads but against a
- * single shared instance of that class. A plain instance field would therefore be
- * overwritten across threads. {@link #customerData} is a {@link ThreadLocal} field
- * itself (not just an internal implementation detail), so tests call
- * {@code customerData.get()} directly — mirroring {@link DriverManager} and
- * {@link ExtentReportManager}.</p>
+ * <p><b>Parallel execution:</b> under {@code parallel="methods"} TestNG shares one instance of
+ * a test class across threads, so per-test state ({@link #customerData}) is held in a
+ * {@link ThreadLocal}. Read it with {@code customerData.get()}.</p>
  */
 @Listeners(TestListener.class)
 public abstract class BaseTest extends DriverContext {
 
     protected final Logger log = LoggerUtil.getLogger(getClass());
 
+    /** Assertion helper (hard + soft), shared by UI and API tests. */
+    protected final UIAssertions assertions = new UIAssertions();
+
     /** Test data for the current thread's test, loaded before it started. Use {@code .get()}. */
     protected static final ThreadLocal<CustomerData> customerData = new ThreadLocal<>();
 
     @BeforeMethod(alwaysRun = true)
-    public void setUp(Method method) {
-        // Create the report node first so every subsequent step is captured.
+    public void baseSetUp(Method method) {
         ExtentReportManager.createTest(getClass().getSimpleName() + "." + method.getName());
         customerData.set(loadTestData(method.getName()));
-        StepLogger.step(log, "=== Test setup: initialising driver ===");
-        DriverManager.setDriver();
     }
 
     @AfterMethod(alwaysRun = true)
-    public void tearDown() {
-        StepLogger.step(log, "=== Test teardown: quitting driver ===");
-        DriverManager.quitDriver();
+    public void baseTearDown() {
         ExtentReportManager.remove();
         customerData.remove();
     }
 
     /**
-     * Loads the test's data into {@link CustomerData} from JSON or Excel, chosen by
-     * the {@code dataSource} property. The data file is named after the test and its
-     * attributes (JSON keys / Excel headers) match the {@link CustomerData} fields.
-     * Returns an empty object when no data file exists, so {@link #customerData}
-     * always resolves to a non-null value via {@code .get()}.
+     * Loads the test's data into {@link CustomerData} from JSON or Excel, chosen by the
+     * {@code dataSource} property. The data file is named after the test and its attributes
+     * (JSON keys / Excel headers) match the {@link CustomerData} fields. Returns an empty
+     * object when no data file exists, so {@link #customerData} always resolves to non-null.
      */
     private CustomerData loadTestData(String testName) {
         String source = PropertyManager.get(FrameworkConstants.DATA_SOURCE).toLowerCase();

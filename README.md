@@ -85,8 +85,9 @@ src/main/java/framework/
 ├── base/
 │   ├── DriverContext.java     Shared parent that exposes getDriver(); extended by BaseTest AND BasePage
 │   ├── DriverManager.java     Owns the ThreadLocal<WebDriver>; setDriver/getDriver/quitDriver; browser factory
-│   ├── BaseTest.java          Root test class: @BeforeMethod/@AfterMethod, loads test data, registers listeners
-│   ├── BaseUITest.java        Adds auto-launch of the app + the shared UIAssertions instance
+│   ├── BaseTest.java          Common root (UI + API): report node + data + listeners; NO driver
+│   ├── BaseUITest.java        extends BaseTest; adds WebDriver + auto app-launch (UI tests)
+│   ├── BaseApiTest.java       extends BaseTest; adds WireMock + API data, no driver (API tests)
 │   └── BasePage.java          Parent of all Page Objects: logged Selenium wrappers (click, type, wait, …)
 ├── pages/
 │   └── LoginPage.java         Sample Page Object: locators + business methods only
@@ -114,8 +115,13 @@ src/main/java/framework/
 │   ├── database/DatabaseValidator.java   querySingleValue / recordExists / rowCount
 │   ├── environment/          (placeholder for environment configs)
 │   └── pojo/                 (placeholder for other POJOs)
-├── api/
-│   ├── executors/ApiExecutor.java   REST Assured GET/POST wrappers
+├── api/                        API automation layer (clubbed with UI in one framework)
+│   ├── config/ApiConfig.java        base URI + mock/live mode
+│   ├── auth/TokenManager.java       bearer token from QE_API_TOKEN env var (dummy in mock)
+│   ├── logging/ApiLogFilter.java    logs request/response + timing to logs + Extent, token MASKED
+│   ├── executors/ApiExecutor.java   auth-aware base client (authed / withToken / noAuth)
+│   ├── client/HomeClient.java       typed endpoint methods (one client per API group)
+│   ├── constants/ApiEndpoints.java  all ~21 endpoint paths from the OpenAPI spec
 │   └── validators/ApiValidator.java hasStatus / bodyContains
 └── constants/
     └── FrameworkConstants.java  All property keys and paths in one place
@@ -151,14 +157,14 @@ mvn test
       → annotation.setRetryAnalyzer(RetryAnalyzer.class)   for EVERY @Test method
 
   ── PER @Test METHOD, on its own thread ───────────────────────────────────────
-  1. @BeforeMethod  BaseTest.setUp(Method)          (superclass runs first)
+  1. @BeforeMethod  BaseTest.baseSetUp(Method)      (superclass runs first — driver-free)
        ├─ ExtentReportManager.createTest("LoginTest.verifyLogin")   → thread's report node
-       ├─ customerData.set(loadTestData("verifyLogin"))             → JSON or Excel → POJO
-       ├─ StepLogger.step("=== initialising driver ===")
-       └─ DriverManager.setDriver()                                 → ThreadLocal<WebDriver>
+       └─ customerData.set(loadTestData("verifyLogin"))             → JSON or Excel → POJO
 
   2. @BeforeMethod  BaseUITest.launchApplication()  (subclass runs after)
+       ├─ DriverManager.setDriver()                                 → ThreadLocal<WebDriver>
        └─ getDriver().get(url)   (url from super("...") or framework.properties)
+       (API tests instead run BaseApiTest.apiSetUp → load apiData + reset WireMock; no driver)
 
   3. @Test  LoginTest.verifyLogin()
        ├─ new LoginPage()                    (no driver passed in — inherits getDriver())
@@ -175,9 +181,9 @@ mvn test
        └─ attachFinalScreenshot()  → save PNG + embed Base64 in report + flush
        (If it FAILED, TestNG now consults RetryAnalyzer.retry() → maybe re-run from step 1)
 
-  6. @AfterMethod  BaseTest.tearDown()
-       ├─ StepLogger.step("=== quitting driver ===")
-       ├─ DriverManager.quitDriver()          → driver.quit() + ThreadLocal.remove()
+  6a. @AfterMethod  BaseUITest.quitDriver()     (subclass runs first)
+       └─ DriverManager.quitDriver()          → driver.quit() + ThreadLocal.remove()
+  6b. @AfterMethod  BaseTest.baseTearDown()     (superclass runs after)
        ├─ ExtentReportManager.remove()         → clears the thread's report node
        └─ customerData.remove()                → clears the thread's data
 
@@ -198,7 +204,7 @@ listeners, so a test author only writes locators, business methods, and assertio
 | Annotation | Where | What it does here |
 |---|---|---|
 | `@Test` | `LoginTest` | Marks a test method. `groups = {"smoke","regression"}` categorises it. |
-| `@BeforeMethod(alwaysRun = true)` | `BaseTest.setUp`, `BaseUITest.launchApplication` | Runs before **every** `@Test`. `alwaysRun=true` means it still runs even if a group filter or a prior config would otherwise skip it. Superclass `@BeforeMethod` runs before subclass. |
+| `@BeforeMethod(alwaysRun = true)` | `BaseTest.baseSetUp` (report node + data), `BaseUITest.launchApplication` (driver + navigate), `BaseApiTest.apiSetUp` (apiData + WireMock) | Runs before **every** `@Test`. `alwaysRun=true` means it still runs even under a group filter. Superclass `@BeforeMethod` runs before subclass, so the report node exists before UI/API setup. |
 | `@AfterMethod(alwaysRun = true)` | `BaseTest.tearDown` | Runs after every `@Test` (even on failure) to quit the driver and clear thread-locals. |
 | `@Listeners(TestListener.class)` | `BaseTest` | Registers the reporting/soft-assert listener for every subclass, so it applies whether you run from the IDE or `testng.xml`. This is why `testng.xml` has no `<listeners>` block. (`RetryTransformer` is **not** here — see below.) |
 | `@Override` | listeners | Standard override of TestNG interface methods. |
@@ -240,21 +246,29 @@ once. A singleton would share one browser across threads and corrupt every sessi
 
 ```
 DriverContext            getDriver()  (the ONLY place tests/pages reach the driver)
-├── BaseTest             lifecycle + data + @Listeners   → BaseUITest → LoginTest
-└── BasePage             logged Selenium wrappers          → LoginPage
+├── BaseTest             driver-free lifecycle: report node + data + @Listeners
+│   ├── BaseUITest       adds WebDriver + app launch     → LoginTest   (UI)
+│   └── BaseApiTest      adds WireMock + API data (no driver) → GetTestSuitesTest (API)
+└── BasePage            logged Selenium wrappers          → LoginPage
 ```
 
-`DriverContext` is a deliberate design choice. Both tests and Page Objects need the driver,
-but a Page Object must **not** inherit the test lifecycle (`@BeforeMethod`, listeners). So
-the driver accessor lives in a small shared parent that both branches extend. This is why:
+`BaseTest` is the common root for **both** UI and API tests, holding only the driver-free
+lifecycle (report node, test data, listener, `assertions`). The browser lifecycle lives one
+level down in `BaseUITest`, so `BaseApiTest` inherits everything shared **without launching a
+browser**. This mirrors the two-branch symmetry: UI tests extend `BaseUITest`, API tests
+extend `BaseApiTest`, both via `BaseTest`.
+
+`DriverContext` is a separate small parent that just exposes `getDriver()`. Both tests (via
+`BaseTest`) and Page Objects (via `BasePage`) extend it, so a Page Object gets the driver
+without inheriting the test lifecycle:
 
 - Page Objects are created with `new LoginPage()` — **no `WebDriver` in the constructor**
   (no constructor injection). They get the driver by inheriting `getDriver()`.
-- Tests also call `getDriver()` from the same shared method — no duplication.
+- API tests inherit `getDriver()` too but never call it (no browser).
 
 ### 6.3 Data-driven testing
 
-Test data is **never parsed inside a test**. `BaseTest.setUp` does it before the test runs:
+Test data is **never parsed inside a test**. `BaseTest.baseSetUp` does it before the test runs:
 
 1. `loadTestData(methodName)` reads the `dataSource` property (`json` or `excel`) via a
    Java 21 `switch`.
@@ -501,7 +515,7 @@ qtestTestCycle=                         # REQUIRED: PID/ID of the parent Test Cy
 **Data-driven**
 
 8. **How is test data loaded, and where?**
-   In `BaseTest.setUp`, before the test body, via `loadTestData(methodName)`. The `dataSource`
+   In `BaseTest.baseSetUp`, before the test body, via `loadTestData(methodName)`. The `dataSource`
    property selects JSON or Excel. The result populates a `ThreadLocal<CustomerData>`.
 
 9. **How do you switch between JSON and Excel?**
