@@ -418,6 +418,10 @@ nothing — it never breaks the test run. A local copy of the JSON payload is ke
 
 ### 6.11 API testing
 
+> **Full API guide:** [`docs/API_AUTOMATION.md`](docs/API_AUTOMATION.md) — a dedicated, API-only
+> README (auth, run steps, per-endpoint coverage, adding endpoints, troubleshooting). The
+> summary below is the overview.
+
 The framework is **clubbed** — the same project runs UI *and* API tests, sharing all the
 infrastructure (Extent reporting, `TestListener`, soft/hard assertions, retry, parallel,
 groups, Excel/JSON data, qTest upload). Only the "how you talk to the system" layer differs:
