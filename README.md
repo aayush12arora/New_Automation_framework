@@ -31,8 +31,9 @@ test categorisation, database/API validation, and results publishing to qTest.
    - [6.7 Parallel execution & thread-safety](#67-parallel-execution--thread-safety)
    - [6.8 Test categories (groups)](#68-test-categories-groups)
    - [6.9 qTest integration](#69-qtest-integration)
-   - [6.10 Database & API validation](#610-database--api-validation)
-   - [6.11 CI/CD (GitHub Actions)](#611-cicd-github-actions)
+   - [6.10 Database validation](#610-database-validation)
+   - [6.11 API testing](#611-api-testing)
+   - [6.12 CI/CD (GitHub Actions)](#612-cicd-github-actions)
 7. [Configuration reference (`framework.properties`)](#7-configuration-reference)
 8. [30 questions you could be asked (with answers)](#8-30-questions-you-could-be-asked)
 
@@ -407,17 +408,88 @@ nothing — it never breaks the test run. A local copy of the JSON payload is ke
 > `queue-processing` endpoint, which may differ per tenant — if so, the submission still
 > succeeds and only the poll line logs the discrepancy.
 
-### 6.10 Database & API validation
+### 6.10 Database validation
 
 - **`DatabaseConnection.open()`** builds a JDBC `Connection` from `db.url/username/password`.
   It is driver-agnostic (pure `java.sql`), so dropping any JDBC driver on the classpath works.
 - **`DatabaseValidator`** keeps SQL out of tests: `querySingleValue`, `recordExists`,
-  `rowCount`, each using try-with-resources so connections always close.
-- **`ApiExecutor`** wraps REST Assured `GET`/`POST`; **`ApiValidator`** offers `hasStatus`
-  and `bodyContains`. These let a test mix UI and API steps (e.g. set up data via API, verify
-  via UI, confirm via DB).
+  `rowCount`, each using try-with-resources so connections always close. Lets a UI or API test
+  confirm results at the database level.
 
-### 6.11 CI/CD (GitHub Actions)
+### 6.11 API testing
+
+The framework is **clubbed** — the same project runs UI *and* API tests, sharing all the
+infrastructure (Extent reporting, `TestListener`, soft/hard assertions, retry, parallel,
+groups, Excel/JSON data, qTest upload). Only the "how you talk to the system" layer differs:
+a browser for UI, HTTP for API. The API layer is built on **REST Assured** and follows a
+service + typed-model convention (aligned with a standard REST Assured/TestNG reference
+framework).
+
+**Package layout** (`framework.api.*`):
+
+| Package | Role |
+|---|---|
+| `base/BaseService` | RestAssured wrapper — base URI, `setAuthToken`, `getRequest`/`postRequest`/`putRequest`/`deleteRequest`. A fresh request spec is built per call (no query-param leakage), and the token is applied from a stored value so one service can make both authed and no-auth calls. |
+| `services/*` | One service per API group (`HomePageService`, …) that `extends BaseService` and exposes typed endpoint methods returning a REST Assured `Response`. |
+| `models/request`, `models/response` | POJOs for request bodies and responses. Responses are deserialized with `response.as(Model.class)`; snake_case JSON keys map to camelCase fields via `@JsonProperty`. |
+| `filters/LoggingFilter` | Logs every request/response + timing to the SLF4J log **and** the Extent report, with the **bearer token masked**. |
+| `config/ApiConfig` | Resolves the base URI from `api.baseUrl`. |
+| `auth/TokenManager` | Reads the bearer token from the `QE_API_TOKEN` environment variable (never committed); strips a leading `Bearer ` if present. |
+| `constants/ApiEndpoints` | All endpoint paths from the OpenAPI spec, in one place. |
+
+**How an API test is written** (mirrors the UI side one-to-one):
+
+```java
+public class GetTestSuitesTest extends BaseApiTest {          // API base (no browser)
+
+    @Test(groups = {"smoke", "regression"})
+    public void getTestSuitesReturnsList() {
+        HomePageService service = new HomePageService();        // like new LoginPage()
+
+        Response response = service.getTestSuites(
+                "ALL", 1, 10, "created_date", "desc",
+                customerData.get().getProjectId());             // data-driven, not hard-coded
+
+        TestSuitesResponse body = response.as(TestSuitesResponse.class);   // typed model
+
+        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.assertNotNull(body.getTestSuites(), "test_suites present");
+        assertions.assertEquals(body.getPageSize(), 10, "page_size echoed");   // typed getter
+    }
+}
+```
+
+**Conventions**
+- **Test data is not hard-coded** — inputs come from `customerData.get()` (loaded per test from
+  `testdata/<testName>.json` or `.xlsx`), the same single data source the UI tests use.
+  `CustomerData` carries both the UI fields and the API fields (`projectId`, `testSuiteId`, …).
+- **Per endpoint: positive + negative + edge** — a valid call asserting the contract and 2–3
+  fields; auth failures (missing/invalid token → 401); validation errors (bad enum/param → 422).
+- **Auth** — `TokenManager` supplies the bearer token from `QE_API_TOKEN`; the token is short-lived
+  (~30 min) so it is read fresh each call. It never appears in logs/report (masked by the filter).
+- **Reporting/retry/parallel/groups/qTest** all work for API tests unchanged — `BaseApiTest`
+  extends `BaseTest`, so it inherits the report node, listener, retry and assertions.
+
+**Adding a new endpoint** (the repeatable pattern):
+1. Add the path to `ApiEndpoints`.
+2. Add a method on the relevant `*Service` (create the service if it's a new group).
+3. Add request/response POJOs under `models/` as needed (use a `.Builder()` for large bodies).
+4. Write the test class `extends BaseApiTest`, read inputs from `customerData`, assert via `assertions`.
+
+**Configuration** (`framework.properties` + env var):
+```properties
+api.baseUrl=https://agentic-uat.eng.deloitte.com   # system under test
+# QE_API_TOKEN is an ENVIRONMENT VARIABLE (never a property) — the bearer token
+```
+```bash
+export QE_API_TOKEN=<your-token>     # needed to run API tests against the live server
+```
+
+> These API tests call the real server, so running them needs `QE_API_TOKEN` set and the base
+> URL reachable from where you run. There is no built-in mock, so in an environment that can't
+> reach the server they compile but won't execute.
+
+### 6.12 CI/CD (GitHub Actions)
 
 GitHub Actions runs the tests on its own cloud runners — it *is* the CI tool, nothing else
 (Jenkins etc.) is required. Three workflows under `.github/workflows/`:
@@ -471,6 +543,9 @@ qtestDomain=yourcompany.qtestnet.com
 qtestProjectId=12345
 qtestTestCycle=                         # REQUIRED: PID/ID of the parent Test Cycle (e.g. CY-1)
 # QTEST_API_TOKEN is an ENVIRONMENT VARIABLE, never a property — keeps the token out of git
+
+api.baseUrl=https://agentic-uat.eng.deloitte.com   # API system under test (section 6.11)
+# QE_API_TOKEN is an ENVIRONMENT VARIABLE, never a property — the API bearer token
 ```
 
 ---
