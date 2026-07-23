@@ -13,6 +13,7 @@ public final class ApiEndpoints {
     // Home Page
     public static final String PROJECTS = "/core-services/v1/project";
     public static final String TEST_SUITES = "/qe/project/test_suites";
+    public static final String TEST_SUITES_V2 = "/qe/project/test_suites/v2";
 
     // Test Suite Management
     public static final String PROJECT_INSIGHTS = "/qe/test_suite/project_insights";

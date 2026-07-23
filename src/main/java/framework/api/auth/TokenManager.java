@@ -3,12 +3,12 @@ package framework.api.auth;
 import framework.constants.FrameworkConstants;
 
 /**
- * Supplies the HTTP Bearer token for secured API calls, read from the {@code QE_API_TOKEN}
- * environment variable (never committed). The token is short-lived (~30 min), so it is read
- * fresh on each call — refresh it by updating the environment variable.
+ * Supplies the value of the {@code ai_assist_token} session cookie used to authenticate API
+ * calls. The value (a JWT) is read from the {@code AI_ASSIST_TOKEN} environment variable
+ * (never committed) — copied from the browser's cookies after an SSO login.
  *
- * <p>A leading {@code "Bearer "} in the value is stripped, since callers add the scheme
- * themselves, so the token can be pasted either way.</p>
+ * <p>The token is short-lived, so it is read fresh on each call; refresh it by updating the
+ * environment variable.</p>
  */
 public final class TokenManager {
 
@@ -16,15 +16,14 @@ public final class TokenManager {
         // Prevent instantiation.
     }
 
-    /** @return the raw bearer token (without the {@code "Bearer "} prefix). */
+    /** @return the raw {@code ai_assist_token} cookie value. */
     public static String getToken() {
         String token = System.getenv(FrameworkConstants.API_TOKEN_ENV_VAR);
         if (token == null || token.isBlank()) {
             throw new IllegalStateException(
-                    "API bearer token missing: set the " + FrameworkConstants.API_TOKEN_ENV_VAR
-                            + " environment variable.");
+                    "API auth token missing: set the " + FrameworkConstants.API_TOKEN_ENV_VAR
+                            + " environment variable to the 'ai_assist_token' cookie value.");
         }
-        String trimmed = token.trim();
-        return trimmed.regionMatches(true, 0, "Bearer ", 0, 7) ? trimmed.substring(7).trim() : trimmed;
+        return token.trim();
     }
 }

@@ -2,6 +2,8 @@ package framework.data.customer;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.util.List;
+
 /**
  * The single test-data holder for both UI and API tests.
  * Populated in {@code BaseTest} from a JSON/Excel file named after the test, so tests read
@@ -25,6 +27,7 @@ public class CustomerData {
     private Integer projectId;
     private Integer testSuiteId;
     private String testCaseId;
+    private List<String> testCaseIds;
     private String runId;
     private String sessionId;
     private String projectName;
@@ -117,6 +120,14 @@ public class CustomerData {
 
     public void setTestCaseId(String testCaseId) {
         this.testCaseId = testCaseId;
+    }
+
+    public List<String> getTestCaseIds() {
+        return testCaseIds;
+    }
+
+    public void setTestCaseIds(List<String> testCaseIds) {
+        this.testCaseIds = testCaseIds;
     }
 
     public String getRunId() {

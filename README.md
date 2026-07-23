@@ -119,11 +119,11 @@ src/main/java/framework/
 ├── api/                        API automation layer (clubbed with UI; conventions mirror
 │   │                           the reference framework: services + typed models + filter)
 │   ├── base/BaseService.java        RestAssured wrapper: baseUri, setAuthToken, get/post/put/delete
-│   ├── services/HomePageService.java  domain service extends BaseService (one per API group)
+│   ├── services/*.java              HomePage/TestSuite/TestExecution/Defect services (extend BaseService)
 │   ├── models/response/*.java       typed response POJOs (response.as(...)); models/request/ for bodies
 │   ├── filters/LoggingFilter.java   logs request/response + timing to logs + Extent, token MASKED
 │   ├── config/ApiConfig.java        base URI of the system under test
-│   ├── auth/TokenManager.java       bearer token from QE_API_TOKEN env var
+│   ├── auth/TokenManager.java       ai_assist_token cookie value from AI_ASSIST_TOKEN env var
 │   └── constants/ApiEndpoints.java  all ~21 endpoint paths from the OpenAPI spec
 └── constants/
     └── FrameworkConstants.java  All property keys and paths in one place
@@ -430,17 +430,27 @@ framework).
 | Package | Role |
 |---|---|
 | `base/BaseService` | RestAssured wrapper — base URI, `setAuthToken`, `getRequest`/`postRequest`/`putRequest`/`deleteRequest`. A fresh request spec is built per call (no query-param leakage), and the token is applied from a stored value so one service can make both authed and no-auth calls. |
-| `services/*` | One service per API group (`HomePageService`, …) that `extends BaseService` and exposes typed endpoint methods returning a REST Assured `Response`. |
-| `models/request`, `models/response` | POJOs for request bodies and responses. Responses are deserialized with `response.as(Model.class)`; snake_case JSON keys map to camelCase fields via `@JsonProperty`. |
-| `filters/LoggingFilter` | Logs every request/response + timing to the SLF4J log **and** the Extent report, with the **bearer token masked**. |
+| `services/*` | One service per API group — `HomePageService`, `TestSuiteService`, `TestExecutionService`, `DefectService` — each `extends BaseService` and exposes typed endpoint methods returning a REST Assured `Response`. |
+| `models/request/*`, `models/response/*` | POJOs for request bodies and responses. Bodies serialize to the API's snake_case keys via `@JsonProperty`; large bodies use a `.Builder()`. Responses are deserialized with `response.as(Model.class)`. |
+| `filters/LoggingFilter` | Logs every request/response + timing to the SLF4J log **and** the Extent report, with the **auth token masked**. |
 | `config/ApiConfig` | Resolves the base URI from `api.baseUrl`. |
-| `auth/TokenManager` | Reads the bearer token from the `QE_API_TOKEN` environment variable (never committed); strips a leading `Bearer ` if present. |
-| `constants/ApiEndpoints` | All endpoint paths from the OpenAPI spec, in one place. |
+| `auth/TokenManager` | Reads the token from the `AI_ASSIST_TOKEN` environment variable (never committed). |
+| `constants/ApiEndpoints` | All endpoint paths from the spec/collection, in one place. |
+
+**Authentication — a session cookie, not a Bearer header.** The system authenticates via the
+`ai_assist_token` cookie (a JWT). `BaseService` sends it as `Cookie: ai_assist_token=<jwt>`.
+The value comes from the `AI_ASSIST_TOKEN` env var.
+
+To get the token from the UI (it's short-lived, ~30 min, and `HttpOnly` so the Console can't read it):
+1. Log into `https://agentic.eng.deloitte.com` (SSO).
+2. **DevTools (F12) → Application → Storage → Cookies → `https://agentic.eng.deloitte.com`**.
+3. Copy the **`ai_assist_token`** value (the full `eyJ…` JWT).
+4. `export AI_ASSIST_TOKEN="<paste>"` — refresh when it expires.
 
 **How an API test is written** (mirrors the UI side one-to-one):
 
 ```java
-public class GetTestSuitesTest extends BaseApiTest {          // API base (no browser)
+public class HomePageTest extends BaseApiTest {                // API base (no browser)
 
     @Test(groups = {"smoke", "regression"})
     public void getTestSuitesReturnsList() {
@@ -460,32 +470,33 @@ public class GetTestSuitesTest extends BaseApiTest {          // API base (no br
 ```
 
 **Conventions**
-- **Test data is not hard-coded** — inputs come from `customerData.get()` (loaded per test from
-  `testdata/<testName>.json` or `.xlsx`), the same single data source the UI tests use.
+- **Test data is not hard-coded** — shared IDs come from `customerData.get()`, loaded from
+  `testdata/apiData.json` (one file for all API tests, since endpoints reuse the same IDs).
   `CustomerData` carries both the UI fields and the API fields (`projectId`, `testSuiteId`, …).
-- **Per endpoint: positive + negative + edge** — a valid call asserting the contract and 2–3
-  fields; auth failures (missing/invalid token → 401); validation errors (bad enum/param → 422).
-- **Auth** — `TokenManager` supplies the bearer token from `QE_API_TOKEN`; the token is short-lived
-  (~30 min) so it is read fresh each call. It never appears in logs/report (masked by the filter).
+- **Per endpoint: positive + negative + edge** — a valid call asserting the status and key
+  fields; auth failures (missing token → 401); validation errors (bad enum/param → 422). All 4
+  groups have positive coverage; `HomePageTest` shows the full positive/negative/edge set.
+- **Auth** — `TokenManager` supplies the `ai_assist_token` cookie value from `AI_ASSIST_TOKEN`,
+  read fresh each call. It never appears in logs/report (masked by the filter).
 - **Reporting/retry/parallel/groups/qTest** all work for API tests unchanged — `BaseApiTest`
   extends `BaseTest`, so it inherits the report node, listener, retry and assertions.
 
 **Adding a new endpoint** (the repeatable pattern):
 1. Add the path to `ApiEndpoints`.
-2. Add a method on the relevant `*Service` (create the service if it's a new group).
+2. Add a method on the relevant `*Service`.
 3. Add request/response POJOs under `models/` as needed (use a `.Builder()` for large bodies).
 4. Write the test class `extends BaseApiTest`, read inputs from `customerData`, assert via `assertions`.
 
 **Configuration** (`framework.properties` + env var):
 ```properties
-api.baseUrl=https://agentic-uat.eng.deloitte.com   # system under test
-# QE_API_TOKEN is an ENVIRONMENT VARIABLE (never a property) — the bearer token
+api.baseUrl=https://agentic.eng.deloitte.com   # system under test
+# AI_ASSIST_TOKEN is an ENVIRONMENT VARIABLE (never a property) — the ai_assist_token cookie value
 ```
 ```bash
-export QE_API_TOKEN=<your-token>     # needed to run API tests against the live server
+export AI_ASSIST_TOKEN="<ai_assist_token cookie value>"   # needed to run API tests live
 ```
 
-> These API tests call the real server, so running them needs `QE_API_TOKEN` set and the base
+> These API tests call the real server, so running them needs `AI_ASSIST_TOKEN` set and the base
 > URL reachable from where you run. There is no built-in mock, so in an environment that can't
 > reach the server they compile but won't execute.
 
@@ -544,8 +555,8 @@ qtestProjectId=12345
 qtestTestCycle=                         # REQUIRED: PID/ID of the parent Test Cycle (e.g. CY-1)
 # QTEST_API_TOKEN is an ENVIRONMENT VARIABLE, never a property — keeps the token out of git
 
-api.baseUrl=https://agentic-uat.eng.deloitte.com   # API system under test (section 6.11)
-# QE_API_TOKEN is an ENVIRONMENT VARIABLE, never a property — the API bearer token
+api.baseUrl=https://agentic.eng.deloitte.com   # API system under test (section 6.11)
+# AI_ASSIST_TOKEN is an ENVIRONMENT VARIABLE, never a property — the ai_assist_token cookie value
 ```
 
 ---

@@ -2,6 +2,7 @@ package framework.api.base;
 
 import framework.api.config.ApiConfig;
 import framework.api.filters.LoggingFilter;
+import framework.constants.FrameworkConstants;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
@@ -11,22 +12,21 @@ import java.util.Map;
 import static io.restassured.RestAssured.given;
 
 /**
- * RestAssured wrapper and base for all API service classes (mirrors the reference
- * framework's {@code BaseService}). Domain services (e.g. {@code HomePageService}) extend this
- * and expose endpoint methods that return a {@link Response}.
+ * RestAssured wrapper and base for all API service classes (mirrors the reference framework's
+ * {@code BaseService}). Domain services (e.g. {@code HomePageService}) extend this and expose
+ * endpoint methods that return a {@link Response}.
  *
- * <p>Follows the reference conventions — {@code setAuthToken} + {@code getRequest}/
- * {@code postRequest}/{@code putRequest}/{@code deleteRequest} — with two framework upgrades:
- * a fresh {@link RequestSpecification} is built per call (so a reused service instance can't
- * leak query params between calls), and the token is applied from a stored value so the same
- * service can make both authed and no-auth (negative) calls. The base URI comes from
- * {@link ApiConfig} and every request carries the {@link LoggingFilter}.</p>
+ * <p><b>Auth is a cookie, not a header.</b> The system authenticates via the
+ * {@code ai_assist_token} session cookie (a JWT), so {@link #setAuthToken(String)} stores the
+ * value and every request carries it as a cookie. A fresh {@link RequestSpecification} is built
+ * per call (so a reused service can't leak query params), and the token is applied from the
+ * stored value — so the same service can make both authed and no-auth (negative) calls.</p>
  */
 public class BaseService {
 
     private String authToken;
 
-    /** Sets the bearer token used by subsequent requests. Not calling it = no auth header. */
+    /** Sets the {@code ai_assist_token} cookie value used by subsequent requests. */
     protected void setAuthToken(String token) {
         this.authToken = token;
     }
@@ -36,7 +36,7 @@ public class BaseService {
     }
 
     protected Response postRequest(Object body, String endpoint, Map<String, Object> queryParams) {
-        RequestSpecification spec = withQuery(baseSpec().contentType(ContentType.JSON), queryParams);
+        RequestSpecification spec = withQuery(baseSpec(), queryParams);
         if (body != null) {
             spec.body(body);
         }
@@ -44,7 +44,7 @@ public class BaseService {
     }
 
     protected Response putRequest(Object body, String endpoint, Map<String, Object> queryParams) {
-        RequestSpecification spec = withQuery(baseSpec().contentType(ContentType.JSON), queryParams);
+        RequestSpecification spec = withQuery(baseSpec(), queryParams);
         if (body != null) {
             spec.body(body);
         }
@@ -59,9 +59,10 @@ public class BaseService {
         RequestSpecification spec = given()
                 .baseUri(ApiConfig.baseUri())
                 .filter(new LoggingFilter())
-                .accept(ContentType.JSON);
+                .accept("*/*")
+                .contentType(ContentType.JSON);
         if (authToken != null && !authToken.isBlank()) {
-            spec.header("Authorization", "Bearer " + authToken);
+            spec.cookie(FrameworkConstants.API_AUTH_COOKIE, authToken);
         }
         return spec;
     }

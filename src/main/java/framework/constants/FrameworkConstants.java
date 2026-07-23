@@ -56,8 +56,10 @@ public final class FrameworkConstants {
     /** Local copy of each generated qTest JSON payload, kept for reference/debugging. */
     public static final String QTEST_REPORT_DIR = "target/qtest-reports";
 
-    // API testing property keys. The bearer token is NOT read from this file — it comes
-    // from the QE_API_TOKEN environment variable so it is never committed.
+    // API testing property keys. The auth token is NOT read from this file — it comes from
+    // the AI_ASSIST_TOKEN environment variable so it is never committed.
     public static final String API_BASE_URL = "api.baseUrl";
-    public static final String API_TOKEN_ENV_VAR = "QE_API_TOKEN";
+    public static final String API_TOKEN_ENV_VAR = "AI_ASSIST_TOKEN";
+    /** Auth is a session cookie of this name (a JWT), not an Authorization: Bearer header. */
+    public static final String API_AUTH_COOKIE = "ai_assist_token";
 }

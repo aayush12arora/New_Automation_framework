@@ -39,9 +39,10 @@ public class LoggingFilter implements Filter {
         return response;
     }
 
+    /** Reports whether the auth cookie is present, without ever printing its value. */
     private static String maskedAuth(FilterableRequestSpecification requestSpec) {
-        boolean hasAuth = requestSpec.getHeaders().hasHeaderWithName("Authorization");
-        return hasAuth ? " | Authorization: Bearer ***MASKED***" : " | (no auth header)";
+        boolean hasAuthCookie = requestSpec.getCookies().hasCookieWithName("ai_assist_token");
+        return hasAuthCookie ? " | Cookie ai_assist_token=***MASKED***" : " | (no auth cookie)";
     }
 
     private static String truncate(String body) {
