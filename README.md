@@ -88,7 +88,7 @@ src/main/java/framework/
 │   ├── DriverManager.java     Owns the ThreadLocal<WebDriver>; setDriver/getDriver/quitDriver; browser factory
 │   ├── BaseTest.java          Common root (UI + API): report node + data + listeners; NO driver
 │   ├── BaseUITest.java        extends BaseTest; adds WebDriver + auto app-launch (UI tests)
-│   ├── BaseApiTest.java       extends BaseTest; thin API base (no driver, no WebDriver)
+│   ├── BaseApiTest.java       extends BaseTest; sets customerData.token from AI_ASSIST_TOKEN, no driver
 │   └── BasePage.java          Parent of all Page Objects: logged Selenium wrappers (click, type, wait, …)
 ├── pages/
 │   └── LoginPage.java         Sample Page Object: locators + business methods only
@@ -120,10 +120,10 @@ src/main/java/framework/
 │   │                           the reference framework: services + typed models + filter)
 │   ├── base/BaseService.java        RestAssured wrapper: baseUri, setAuthToken, get/post/put/delete
 │   ├── services/*.java              HomePage/TestSuite/TestExecution/Defect services (extend BaseService)
-│   ├── models/response/*.java       typed response POJOs (response.as(...)); models/request/ for bodies
+│   ├── models/response/*.java       ONE typed POJO per endpoint response (response.as(...)); models/request/ for bodies
 │   ├── filters/LoggingFilter.java   logs request/response + timing to logs + Extent, token MASKED
 │   ├── config/ApiConfig.java        base URI of the system under test
-│   ├── auth/TokenManager.java       ai_assist_token cookie value from AI_ASSIST_TOKEN env var
+│   ├── auth/TokenManager.java       ai_assist_token value from AI_ASSIST_TOKEN env var (called only by BaseApiTest)
 │   └── constants/ApiEndpoints.java  all ~21 endpoint paths from the OpenAPI spec
 └── constants/
     └── FrameworkConstants.java  All property keys and paths in one place
@@ -451,6 +451,13 @@ To get the token from the UI (it's short-lived, ~30 min, and `HttpOnly` so the C
 3. Copy the **`ai_assist_token`** value (the full `eyJ…` JWT).
 4. `export AI_ASSIST_TOKEN="<paste>"` — refresh when it expires.
 
+**The token lives on `CustomerData`, set once by `BaseApiTest`** — not fetched per service call.
+`BaseTest.baseSetUp` (superclass) loads that test's data file into `customerData` first;
+`BaseApiTest.setApiToken` (subclass, runs after) then reads `AI_ASSIST_TOKEN` via `TokenManager`
+and sets it on the *same* `customerData` instance. Every service method takes `token` as its
+first parameter — sourced by the test from `customerData.get().getToken()` — so `TokenManager`
+is called in exactly one place in the whole framework.
+
 **How an API test is written** (mirrors the UI side one-to-one):
 
 ```java
@@ -458,11 +465,11 @@ public class HomePageTest extends BaseApiTest {                // API base (no b
 
     @Test(groups = {"smoke", "regression"})
     public void getTestSuitesReturnsList() {
-        HomePageService service = new HomePageService();        // like new LoginPage()
-
-        Response response = service.getTestSuites(
-                "ALL", 1, 10, "created_date", "desc",
-                customerData.get().getProjectId());             // data-driven, not hard-coded
+        CustomerData data = customerData.get();                 // loaded from
+                                                                 // testdata/getTestSuitesReturnsList.json
+                                                                 // + token set by BaseApiTest
+        Response response = new HomePageService().getTestSuites(
+                data.getToken(), "ALL", 1, 10, "created_date", "desc", data.getProjectId());
 
         TestSuitesResponse body = response.as(TestSuitesResponse.class);   // typed model
 
@@ -474,22 +481,27 @@ public class HomePageTest extends BaseApiTest {                // API base (no b
 ```
 
 **Conventions**
-- **Test data is not hard-coded** — shared IDs come from `customerData.get()`, loaded from
-  `testdata/apiData.json` (one file for all API tests, since endpoints reuse the same IDs).
-  `CustomerData` carries both the UI fields and the API fields (`projectId`, `testSuiteId`, …).
-- **Per endpoint: positive + negative + edge** — a valid call asserting the status and key
-  fields; auth failures (missing token → 401); validation errors (bad enum/param → 422). All 4
-  groups have positive coverage; `HomePageTest` shows the full positive/negative/edge set.
-- **Auth** — `TokenManager` supplies the `ai_assist_token` cookie value from `AI_ASSIST_TOKEN`,
-  read fresh each call. It never appears in logs/report (masked by the filter).
+- **Test data is not hard-coded, one file per test** — `testdata/<testMethodName>.json`, the
+  exact same convention as the UI side (e.g. `getTestSuitesReturnsList.json`). `CustomerData`
+  carries both the UI fields and the API fields (`projectId`, `testSuiteId`, …) plus `token`
+  (the one field never loaded from a file).
+- **A typed response model for every endpoint** — 20 models under `models/response`, one per
+  distinct response shape (structurally-identical responses share a model, e.g. `{success,
+  message}` → `SuccessMessageResponse` for three endpoints). Full list in the
+  [API guide, §7](docs/API_AUTOMATION.md#7-response-models).
+- **Per endpoint: positive + negative + edge** — a valid call asserting the status and typed
+  fields; auth failures (missing token → 401); validation errors (bad enum/param → 422).
+  `HomePageTest` shows the full positive/negative/edge set.
 - **Reporting/retry/parallel/groups/qTest** all work for API tests unchanged — `BaseApiTest`
   extends `BaseTest`, so it inherits the report node, listener, retry and assertions.
 
 **Adding a new endpoint** (the repeatable pattern):
 1. Add the path to `ApiEndpoints`.
-2. Add a method on the relevant `*Service`.
-3. Add request/response POJOs under `models/` as needed (use a `.Builder()` for large bodies).
-4. Write the test class `extends BaseApiTest`, read inputs from `customerData`, assert via `assertions`.
+2. Add a response model (and request model, if there's a body) under `models/`.
+3. Add a method on the relevant `*Service` — `token` as the first parameter.
+4. Add a data file named after the test method.
+5. Write the test class `extends BaseApiTest`, read the token + fields from `customerData`,
+   deserialize the response, assert via `assertions`.
 
 **Configuration** (`framework.properties` + env var):
 ```properties

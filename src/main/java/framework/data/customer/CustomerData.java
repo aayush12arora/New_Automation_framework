@@ -20,6 +20,9 @@ public class CustomerData {
     private String lastName;
     private String email;
 
+    // --- API auth (set by BaseApiTest, NOT loaded from a data file) ---
+    private String token;
+
     // --- API fields (QE Core Services) ---
     private String userId;
     private Integer personaId;
@@ -72,6 +75,14 @@ public class CustomerData {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
     }
 
     public String getUserId() {

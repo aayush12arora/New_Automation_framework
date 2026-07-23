@@ -3,6 +3,12 @@ package api.defect;
 import framework.api.models.request.AddDefectsRequest;
 import framework.api.models.request.NewDefectRequest;
 import framework.api.models.request.UpdateDefectRequest;
+import framework.api.models.response.AddDefectsResponse;
+import framework.api.models.response.GetDefectsResponse;
+import framework.api.models.response.NewDefectResponse;
+import framework.api.models.response.SimilarDefectsResponse;
+import framework.api.models.response.SuccessMessageResponse;
+import framework.api.models.response.TemplateResponse;
 import framework.api.services.DefectService;
 import framework.base.BaseApiTest;
 import framework.data.customer.CustomerData;
@@ -11,53 +17,63 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-/** Tests for the Defect Management API group. */
+/**
+ * Tests for the Defect Management API group. The auth token comes from
+ * {@code customerData.get().getToken()}; every other input from the same object, loaded per
+ * test from {@code testdata/<testName>.json}.
+ */
 public class DefectManagementTest extends BaseApiTest {
 
     @Test(groups = {"regression"})
     public void addDefects() {
         CustomerData data = customerData.get();
-        AddDefectsRequest body = new AddDefectsRequest(
+        AddDefectsRequest requestBody = new AddDefectsRequest(
                 data.getTestCaseIds(), "5c7efd94-517b-4bad-bd2d-4a117a22fe9d", data.getTestSuiteId());
 
-        Response response = new DefectService().addDefects(body);
+        Response response = new DefectService().addDefects(data.getToken(), requestBody);
+        AddDefectsResponse body = response.as(AddDefectsResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.assertEquals(body.getSuccess(), Boolean.TRUE, "success should be true");
     }
 
     @Test(groups = {"smoke", "regression"})
     public void getDefectsReturnsList() {
         CustomerData data = customerData.get();
         Response response = new DefectService().getDefects(
-                data.getTestSuiteId(), data.getProjectId(), data.getPage(), data.getPageSize());
+                data.getToken(), data.getTestSuiteId(), data.getProjectId(), data.getPage(), data.getPageSize());
+        GetDefectsResponse body = response.as(GetDefectsResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(response.jsonPath().get("defects"), "response should contain defects");
+        assertions.assertNotNull(body.getDefects(), "response should contain defects");
     }
 
     @Test(groups = {"regression"})
     public void getSimilarDefects() {
         CustomerData data = customerData.get();
-        Response response = new DefectService().getSimilarDefects(data.getTestSuiteId(), data.getTestCaseIds());
+        Response response = new DefectService().getSimilarDefects(
+                data.getToken(), data.getTestSuiteId(), data.getTestCaseIds());
+        SimilarDefectsResponse body = response.as(SimilarDefectsResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(response.jsonPath().get("similar_defects"), "response should contain similar_defects");
+        assertions.assertNotNull(body.getSimilarDefects(), "response should contain similar_defects");
     }
 
     @Test(groups = {"regression"})
     public void getTemplate() {
         CustomerData data = customerData.get();
         Response response = new DefectService().getTemplate(
-                data.getTestSuiteId(), data.getTestCaseId(), data.getSessionId(), data.getProjectName());
+                data.getToken(), data.getTestSuiteId(), data.getTestCaseId(), data.getSessionId(), data.getProjectName());
+        TemplateResponse body = response.as(TemplateResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(response.jsonPath().get("template"), "response should contain template");
+        assertions.assertNotNull(body.getTemplate(), "response should contain template");
     }
 
     @Test(groups = {"regression"})
     public void createNewDefect() {
         CustomerData data = customerData.get();
-        NewDefectRequest body = new NewDefectRequest.Builder()
+        NewDefectRequest requestBody = new NewDefectRequest.Builder()
                 .issueType("Bug")
                 .title("API automation - execution data missing")
                 .description("Created by API automation")
@@ -69,20 +85,25 @@ public class DefectManagementTest extends BaseApiTest {
                 .labels(List.of("UI", "Automated_Test"))
                 .build();
 
-        Response response = new DefectService().addNewDefect(data.getProjectId(), data.getTestSuiteId(), body);
+        Response response = new DefectService().addNewDefect(data.getToken(), data.getProjectId(),
+                data.getTestSuiteId(), requestBody);
+        NewDefectResponse body = response.as(NewDefectResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 201, "creating a defect should return 201");
+        assertions.assertNotNull(body.getDefectId(), "response should contain defect_id");
     }
 
     @Test(groups = {"regression"})
     public void updateDefect() {
         CustomerData data = customerData.get();
-        UpdateDefectRequest body = new UpdateDefectRequest(
+        UpdateDefectRequest requestBody = new UpdateDefectRequest(
                 List.of(new UpdateDefectRequest.DefectData("QA-41", "https://eh-de.atlassian.net/browse/QA-41")),
                 data.getTestCaseId(), data.getTestSuiteId());
 
-        Response response = new DefectService().updateDefect(body);
+        Response response = new DefectService().updateDefect(data.getToken(), requestBody);
+        SuccessMessageResponse body = response.as(SuccessMessageResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.assertEquals(body.getSuccess(), Boolean.TRUE, "success should be true");
     }
 }

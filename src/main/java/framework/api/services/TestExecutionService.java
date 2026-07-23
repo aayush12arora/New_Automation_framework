@@ -1,6 +1,5 @@
 package framework.api.services;
 
-import framework.api.auth.TokenManager;
 import framework.api.base.BaseService;
 import framework.api.constants.ApiEndpoints;
 import framework.api.models.request.DataCollectorRequest;
@@ -11,12 +10,15 @@ import io.restassured.response.Response;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Service for the "Test Execution" endpoints. */
+/**
+ * Service for the "Test Execution" endpoints. Methods take the auth token as a parameter —
+ * sourced by the caller from {@code customerData.get().getToken()}.
+ */
 public class TestExecutionService extends BaseService {
 
     /** {@code GET /qe/rerun_id}. */
-    public Response getRunId(Integer projectId, Integer testSuiteId) {
-        setAuthToken(TokenManager.getToken());
+    public Response getRunId(String token, Integer projectId, Integer testSuiteId) {
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("project_id", projectId);
         params.put("test_suite_id", testSuiteId);
@@ -24,9 +26,9 @@ public class TestExecutionService extends BaseService {
     }
 
     /** {@code GET /qe/test-suite/run-history}. */
-    public Response getRunHistory(String userId, Integer projectId, Integer testSuiteId,
+    public Response getRunHistory(String token, String userId, Integer projectId, Integer testSuiteId,
                                   Integer page, Integer pageSize) {
-        setAuthToken(TokenManager.getToken());
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("user_id", userId);
         params.put("project_id", projectId);
@@ -37,9 +39,9 @@ public class TestExecutionService extends BaseService {
     }
 
     /** {@code GET /qe/test-suite/details}. */
-    public Response getSuiteDetails(Integer projectId, String userId, Integer testSuiteId,
+    public Response getSuiteDetails(String token, Integer projectId, String userId, Integer testSuiteId,
                                     Integer pageSize, Integer page, String runId) {
-        setAuthToken(TokenManager.getToken());
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("project_id", projectId);
         params.put("user_id", userId);
@@ -51,14 +53,14 @@ public class TestExecutionService extends BaseService {
     }
 
     /** {@code POST /qe/report/generate}. */
-    public Response generateReport(ReportGenerateRequest body) {
-        setAuthToken(TokenManager.getToken());
+    public Response generateReport(String token, ReportGenerateRequest body) {
+        setAuthToken(token);
         return postRequest(body, ApiEndpoints.REPORT_GENERATE, null);
     }
 
     /** {@code GET /qe/test-case/github-files}. */
-    public Response getGithubFiles(Integer projectId, Integer testSuiteId, String testCaseId) {
-        setAuthToken(TokenManager.getToken());
+    public Response getGithubFiles(String token, Integer projectId, Integer testSuiteId, String testCaseId) {
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("project_id", projectId);
         params.put("test_suite_id", testSuiteId);
@@ -67,15 +69,15 @@ public class TestExecutionService extends BaseService {
     }
 
     /** {@code POST /qe/test_suite/rerun}. */
-    public Response rerun(RerunRequest body) {
-        setAuthToken(TokenManager.getToken());
+    public Response rerun(String token, RerunRequest body) {
+        setAuthToken(token);
         return postRequest(body, ApiEndpoints.RERUN, null);
     }
 
     /** {@code POST /data-collector/data-collector/execute} (query params + body). */
-    public Response dataCollectorExecute(Integer projectId, Integer testSuiteId, String runId,
+    public Response dataCollectorExecute(String token, Integer projectId, Integer testSuiteId, String runId,
                                          DataCollectorRequest body) {
-        setAuthToken(TokenManager.getToken());
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("project_id", projectId);
         params.put("test_suite_id", testSuiteId);
@@ -84,8 +86,8 @@ public class TestExecutionService extends BaseService {
     }
 
     /** {@code GET /qe/test-suite/testcase-details}. */
-    public Response getTestcaseDetails(Integer projectId, String testCaseId, Integer testSuiteId) {
-        setAuthToken(TokenManager.getToken());
+    public Response getTestcaseDetails(String token, Integer projectId, String testCaseId, Integer testSuiteId) {
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("project_id", projectId);
         params.put("test_case_id", testCaseId);

@@ -1,6 +1,5 @@
 package framework.api.services;
 
-import framework.api.auth.TokenManager;
 import framework.api.base.BaseService;
 import framework.api.constants.ApiEndpoints;
 import io.restassured.response.Response;
@@ -10,13 +9,15 @@ import java.util.Map;
 
 /**
  * Service for the "Home Page" endpoints (mirrors the reference framework's service classes).
- * Endpoint methods return a {@link Response} the tests deserialize and assert on.
+ * Endpoint methods take the auth token as a parameter — sourced by the caller from
+ * {@code customerData.get().getToken()}, set once in {@code BaseApiTest} — and return a
+ * {@link Response} the tests deserialize and assert on.
  */
 public class HomePageService extends BaseService {
 
     /** {@code GET /core-services/v1/project} — projects for the home page. */
-    public Response getProjects(String userId, Integer personaId, Integer moduleId) {
-        setAuthToken(TokenManager.getToken());
+    public Response getProjects(String token, String userId, Integer personaId, Integer moduleId) {
+        setAuthToken(token);
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("user_id", userId);
         params.put("persona_id", personaId);
@@ -25,9 +26,9 @@ public class HomePageService extends BaseService {
     }
 
     /** {@code GET /qe/project/test_suites} with a valid token — positive/edge scenarios. */
-    public Response getTestSuites(String status, Integer page, Integer pageSize,
+    public Response getTestSuites(String token, String status, Integer page, Integer pageSize,
                                   String sortBy, String sortOrder, Integer projectId) {
-        setAuthToken(TokenManager.getToken());
+        setAuthToken(token);
         return getRequest(ApiEndpoints.TEST_SUITES,
                 testSuiteParams(status, page, pageSize, sortBy, sortOrder, projectId));
     }
@@ -40,8 +41,8 @@ public class HomePageService extends BaseService {
     }
 
     /** {@code GET /qe/project/test_suites/v2}. */
-    public Response getTestSuitesV2() {
-        setAuthToken(TokenManager.getToken());
+    public Response getTestSuitesV2(String token) {
+        setAuthToken(token);
         return getRequest(ApiEndpoints.TEST_SUITES_V2, null);
     }
 

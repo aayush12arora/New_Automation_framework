@@ -1,6 +1,8 @@
 package api.home;
 
+import framework.api.models.response.ProjectsResponse;
 import framework.api.models.response.TestSuitesResponse;
+import framework.api.models.response.TestSuitesV2Response;
 import framework.api.services.HomePageService;
 import framework.base.BaseApiTest;
 import framework.data.customer.CustomerData;
@@ -8,10 +10,11 @@ import io.restassured.response.Response;
 import org.testng.annotations.Test;
 
 /**
- * Tests for the Home Page API group. Reference style: instantiate the service, call the
- * endpoint, deserialize with {@code response.as(...)} where the contract is typed, and assert
- * via the shared {@code assertions}. Inputs come from {@code customerData.get()} (loaded from
- * {@code testdata/apiData.json}). Covers positive, negative (auth) and edge/validation.
+ * Tests for the Home Page API group. The auth token is read from
+ * {@code customerData.get().getToken()} — set once per test by {@code BaseApiTest}, not fetched
+ * by the service itself. Every other input also comes from {@code customerData.get()}, loaded
+ * from {@code testdata/<testName>.json} (one file per test, same convention as the UI side).
+ * Responses are deserialized into typed models and asserted via the shared {@code assertions}.
  */
 public class HomePageTest extends BaseApiTest {
 
@@ -19,16 +22,18 @@ public class HomePageTest extends BaseApiTest {
     public void getProjectsReturnsProjects() {
         CustomerData data = customerData.get();
         Response response = new HomePageService().getProjects(
-                data.getUserId(), data.getPersonaId(), data.getModuleId());
+                data.getToken(), data.getUserId(), data.getPersonaId(), data.getModuleId());
+        ProjectsResponse body = response.as(ProjectsResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(response.jsonPath().get("projects"), "response should contain projects");
+        assertions.assertNotNull(body.getProjects(), "response should contain projects");
     }
 
     @Test(groups = {"smoke", "regression"})
     public void getTestSuitesReturnsList() {
+        CustomerData data = customerData.get();
         Response response = new HomePageService().getTestSuites(
-                "ALL", 1, 10, "created_date", "desc", customerData.get().getProjectId());
+                data.getToken(), "ALL", 1, 10, "created_date", "desc", data.getProjectId());
         TestSuitesResponse body = response.as(TestSuitesResponse.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "valid request should return 200");
@@ -39,24 +44,28 @@ public class HomePageTest extends BaseApiTest {
 
     @Test(groups = {"regression"})
     public void getTestSuitesWithoutTokenReturns401() {
+        CustomerData data = customerData.get();
         Response response = new HomePageService().getTestSuitesWithoutAuth(
-                "ALL", 1, 10, "created_date", "desc", customerData.get().getProjectId());
+                "ALL", 1, 10, "created_date", "desc", data.getProjectId());
 
         assertions.assertEquals(response.getStatusCode(), 401, "missing auth cookie should return 401");
     }
 
     @Test(groups = {"regression"})
     public void getTestSuitesInvalidStatusReturns422() {
+        CustomerData data = customerData.get();
         Response response = new HomePageService().getTestSuites(
-                "INVALID", 1, 10, "created_date", "desc", customerData.get().getProjectId());
+                data.getToken(), "INVALID", 1, 10, "created_date", "desc", data.getProjectId());
 
         assertions.assertEquals(response.getStatusCode(), 422, "invalid status enum should return 422");
     }
 
     @Test(groups = {"regression"})
     public void getTestSuitesV2ReturnsOk() {
-        Response response = new HomePageService().getTestSuitesV2();
+        Response response = new HomePageService().getTestSuitesV2(customerData.get().getToken());
+        TestSuitesV2Response body = response.as(TestSuitesV2Response.class);
 
         assertions.assertEquals(response.getStatusCode(), 200, "v2 should return 200");
+        assertions.assertNotNull(body, "response body should deserialize");
     }
 }
