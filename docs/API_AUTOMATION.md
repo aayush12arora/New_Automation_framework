@@ -36,7 +36,7 @@ works, how to run it, and how to add endpoints.
 | Auth | `ai_assist_token` **session cookie** (a JWT), read once per test into `customerData.token` |
 | HTTP client | REST Assured |
 | Models | Jackson POJOs — a **typed request and/or response model for every endpoint** |
-| Assertions | shared `assertions` helper (hard + soft) |
+| Assertions | shared `assertions` helper — API tests use **soft** assertions (all collected, verified together at test end) |
 | Data | `testdata/<testMethodName>.json` → `customerData` — **one file per test**, same as UI |
 | Reporting | Extent + SLF4J logs (token masked), shared with UI |
 | Groups | `smoke`, `regression` (run with `-Dgroups=`) |
@@ -364,7 +364,9 @@ public Response getProjectInsights(String token, Integer projectId) {
 `src/test/resources/testdata/<testMethodName>.json` with the fields that test needs (never `token`).
 
 **5) Write the test** — `extends BaseApiTest`, read the token + fields from `customerData.get()`,
-deserialize the response, assert via `assertions`:
+deserialize the response, assert via `assertions`. API tests use the **soft** assertions — every
+assertion in the test method runs even if an earlier one fails, and the framework fails the test
+(with all failures listed) at the end via `UIAssertions.assertAll()` in `TestListener`:
 ```java
 public class TestSuiteManagementTest extends BaseApiTest {
     @Test(groups = {"smoke", "regression"})
@@ -373,8 +375,8 @@ public class TestSuiteManagementTest extends BaseApiTest {
         Response response = new TestSuiteService().getProjectInsights(data.getToken(), data.getProjectId());
         ProjectInsightsResponse body = response.as(ProjectInsightsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getInsights(), "response should contain insights");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getInsights(), "response should contain insights");
     }
 }
 ```
@@ -389,7 +391,7 @@ Each endpoint is designed for three kinds of check (the Home Page group demonstr
   fields are asserted (not just `status == 200`):
   ```java
   TestSuitesResponse body = response.as(TestSuitesResponse.class);
-  assertions.assertEquals(body.getPageSize(), 10, "page_size echoed");
+  assertions.softAssertEquals(body.getPageSize(), 10, "page_size echoed");
   ```
 - **Negative (auth)** — call without the cookie → `401`:
   ```java

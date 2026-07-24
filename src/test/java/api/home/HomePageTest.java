@@ -25,8 +25,8 @@ public class HomePageTest extends BaseApiTest {
                 data.getToken(), data.getUserId(), data.getPersonaId(), data.getModuleId());
         ProjectsResponse body = response.as(ProjectsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getProjects(), "response should contain projects");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getProjects(), "response should contain projects");
     }
 
     @Test(groups = {"smoke", "regression"})
@@ -36,10 +36,10 @@ public class HomePageTest extends BaseApiTest {
                 data.getToken(), "ALL", 1, 10, "created_date", "desc", data.getProjectId());
         TestSuitesResponse body = response.as(TestSuitesResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "valid request should return 200");
-        assertions.assertNotNull(body.getTestSuites(), "response should contain test_suites");
-        assertions.assertEquals(body.getPage(), 1, "page should be echoed back");
-        assertions.assertEquals(body.getPageSize(), 10, "page_size should be echoed back");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "valid request should return 200");
+        assertions.softAssertNotNull(body.getTestSuites(), "response should contain test_suites");
+        assertions.softAssertEquals(body.getPage(), 1, "page should be echoed back");
+        assertions.softAssertEquals(body.getPageSize(), 10, "page_size should be echoed back");
     }
 
     @Test(groups = {"regression"})
@@ -48,7 +48,7 @@ public class HomePageTest extends BaseApiTest {
         Response response = new HomePageService().getTestSuitesWithoutAuth(
                 "ALL", 1, 10, "created_date", "desc", data.getProjectId());
 
-        assertions.assertEquals(response.getStatusCode(), 401, "missing auth cookie should return 401");
+        assertions.softAssertEquals(response.getStatusCode(), 401, "missing auth cookie should return 401");
     }
 
     @Test(groups = {"regression"})
@@ -57,7 +57,7 @@ public class HomePageTest extends BaseApiTest {
         Response response = new HomePageService().getTestSuites(
                 data.getToken(), "INVALID", 1, 10, "created_date", "desc", data.getProjectId());
 
-        assertions.assertEquals(response.getStatusCode(), 422, "invalid status enum should return 422");
+        assertions.softAssertEquals(response.getStatusCode(), 422, "invalid status enum should return 422");
     }
 
     @Test(groups = {"regression"})
@@ -65,7 +65,7 @@ public class HomePageTest extends BaseApiTest {
         Response response = new HomePageService().getTestSuitesV2(customerData.get().getToken());
         TestSuitesV2Response body = response.as(TestSuitesV2Response.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "v2 should return 200");
-        assertions.assertNotNull(body, "response body should deserialize");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "v2 should return 200");
+        assertions.softAssertNotNull(body, "response body should deserialize");
     }
 }

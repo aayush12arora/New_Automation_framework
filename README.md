@@ -473,9 +473,9 @@ public class HomePageTest extends BaseApiTest {                // API base (no b
 
         TestSuitesResponse body = response.as(TestSuitesResponse.class);   // typed model
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getTestSuites(), "test_suites present");
-        assertions.assertEquals(body.getPageSize(), 10, "page_size echoed");   // typed getter
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getTestSuites(), "test_suites present");
+        assertions.softAssertEquals(body.getPageSize(), 10, "page_size echoed");   // typed getter, soft
     }
 }
 ```
@@ -492,6 +492,9 @@ public class HomePageTest extends BaseApiTest {                // API base (no b
 - **Per endpoint: positive + negative + edge** — a valid call asserting the status and typed
   fields; auth failures (missing token → 401); validation errors (bad enum/param → 422).
   `HomePageTest` shows the full positive/negative/edge set.
+- **Soft assertions** — API tests call `assertions.softAssertX(...)` (not the hard `assertX`), so
+  every assertion in a test method runs even if an earlier one fails; `TestListener` verifies and
+  fails the test (listing every failure) at the end via `UIAssertions.assertAll()`.
 - **Reporting/retry/parallel/groups/qTest** all work for API tests unchanged — `BaseApiTest`
   extends `BaseTest`, so it inherits the report node, listener, retry and assertions.
 

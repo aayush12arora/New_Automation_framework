@@ -33,8 +33,8 @@ public class TestExecutionTest extends BaseApiTest {
                 data.getToken(), data.getProjectId(), data.getTestSuiteId());
         RunIdResponse body = response.as(RunIdResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getRunId(), "response should contain run_id");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getRunId(), "response should contain run_id");
     }
 
     @Test(groups = {"regression"})
@@ -44,8 +44,8 @@ public class TestExecutionTest extends BaseApiTest {
                 data.getUserId(), data.getProjectId(), data.getTestSuiteId(), data.getPage(), data.getPageSize());
         RunHistoryResponse body = response.as(RunHistoryResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getHistory(), "response should contain history");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getHistory(), "response should contain history");
     }
 
     @Test(groups = {"regression"})
@@ -56,8 +56,8 @@ public class TestExecutionTest extends BaseApiTest {
                 data.getPageSize(), data.getPage(), data.getRunId());
         SuiteDetailsResponse body = response.as(SuiteDetailsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getDetails(), "response should contain details");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getDetails(), "response should contain details");
     }
 
     @Test(groups = {"regression"})
@@ -69,8 +69,8 @@ public class TestExecutionTest extends BaseApiTest {
         Response response = new TestExecutionService().generateReport(data.getToken(), requestBody);
         ReportGenerateResponse body = response.as(ReportGenerateResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getStatus(), "response should contain status");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getStatus(), "response should contain status");
     }
 
     @Test(groups = {"regression"})
@@ -80,8 +80,8 @@ public class TestExecutionTest extends BaseApiTest {
                 data.getToken(), data.getProjectId(), data.getTestSuiteId(), data.getTestCaseId());
         GithubFilesResponse body = response.as(GithubFilesResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getFiles(), "response should contain files");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getFiles(), "response should contain files");
     }
 
     @Test(groups = {"regression"})
@@ -93,8 +93,8 @@ public class TestExecutionTest extends BaseApiTest {
         Response response = new TestExecutionService().rerun(data.getToken(), requestBody);
         RerunResponse body = response.as(RerunResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getStatus(), "response should contain status");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getStatus(), "response should contain status");
     }
 
     @Test(groups = {"regression"})
@@ -106,8 +106,8 @@ public class TestExecutionTest extends BaseApiTest {
                 data.getToken(), data.getProjectId(), data.getTestSuiteId(), data.getRunId(), requestBody);
         DataCollectorResponse body = response.as(DataCollectorResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getStatus(), "response should contain status");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getStatus(), "response should contain status");
     }
 
     @Test(groups = {"regression"})
@@ -117,7 +117,7 @@ public class TestExecutionTest extends BaseApiTest {
                 data.getToken(), data.getProjectId(), data.getTestCaseId(), data.getTestSuiteId());
         TestcaseDetailsResponse body = response.as(TestcaseDetailsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getTestCase(), "response should contain test_case");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getTestCase(), "response should contain test_case");
     }
 }

@@ -27,8 +27,8 @@ public class TestSuiteManagementTest extends BaseApiTest {
         Response response = new TestSuiteService().getProjectInsights(data.getToken(), data.getProjectId());
         ProjectInsightsResponse body = response.as(ProjectInsightsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getInsights(), "response should contain insights");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getInsights(), "response should contain insights");
     }
 
     @Test(groups = {"regression"})
@@ -37,8 +37,8 @@ public class TestSuiteManagementTest extends BaseApiTest {
         Response response = new TestSuiteService().getTcmTool(data.getToken(), data.getProjectId());
         TcmToolResponse body = response.as(TcmToolResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body, "response body should deserialize");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body, "response body should deserialize");
     }
 
     @Test(groups = {"regression"})
@@ -50,8 +50,8 @@ public class TestSuiteManagementTest extends BaseApiTest {
         Response response = new TestSuiteService().addTestcases(data.getToken(), body);
         SuccessMessageResponse result = response.as(SuccessMessageResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "adding test cases should return 200");
-        assertions.assertEquals(result.getSuccess(), Boolean.TRUE, "success should be true");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "adding test cases should return 200");
+        assertions.softAssertEquals(result.getSuccess(), Boolean.TRUE, "success should be true");
     }
 
     @Test(groups = {"regression"})
@@ -61,8 +61,8 @@ public class TestSuiteManagementTest extends BaseApiTest {
                 data.getToken(), data.getProjectId(), data.getTestSuiteId(), data.getTestCaseId());
         SuccessMessageResponse result = response.as(SuccessMessageResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "deleting a test case should return 200");
-        assertions.assertEquals(result.getSuccess(), Boolean.TRUE, "success should be true");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "deleting a test case should return 200");
+        assertions.softAssertEquals(result.getSuccess(), Boolean.TRUE, "success should be true");
     }
 
     @Test(groups = {"smoke", "regression"})
@@ -82,8 +82,8 @@ public class TestSuiteManagementTest extends BaseApiTest {
         Response response = new TestSuiteService().createSuite(data.getToken(), body);
         CreateSuiteResponse result = response.as(CreateSuiteResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 201, "creating a suite should return 201");
-        assertions.assertNotNull(result.getData(), "response should contain data");
-        assertions.assertNotNull(result.getData().getTestSuiteId(), "data should contain test_suite_id");
+        assertions.softAssertEquals(response.getStatusCode(), 201, "creating a suite should return 201");
+        assertions.softAssertNotNull(result.getData(), "response should contain data");
+        assertions.softAssertNotNull(result.getData().getTestSuiteId(), "data should contain test_suite_id");
     }
 }

@@ -33,8 +33,8 @@ public class DefectManagementTest extends BaseApiTest {
         Response response = new DefectService().addDefects(data.getToken(), requestBody);
         AddDefectsResponse body = response.as(AddDefectsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertEquals(body.getSuccess(), Boolean.TRUE, "success should be true");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertEquals(body.getSuccess(), Boolean.TRUE, "success should be true");
     }
 
     @Test(groups = {"smoke", "regression"})
@@ -44,8 +44,8 @@ public class DefectManagementTest extends BaseApiTest {
                 data.getToken(), data.getTestSuiteId(), data.getProjectId(), data.getPage(), data.getPageSize());
         GetDefectsResponse body = response.as(GetDefectsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getDefects(), "response should contain defects");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getDefects(), "response should contain defects");
     }
 
     @Test(groups = {"regression"})
@@ -55,8 +55,8 @@ public class DefectManagementTest extends BaseApiTest {
                 data.getToken(), data.getTestSuiteId(), data.getTestCaseIds());
         SimilarDefectsResponse body = response.as(SimilarDefectsResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getSimilarDefects(), "response should contain similar_defects");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getSimilarDefects(), "response should contain similar_defects");
     }
 
     @Test(groups = {"regression"})
@@ -66,8 +66,8 @@ public class DefectManagementTest extends BaseApiTest {
                 data.getToken(), data.getTestSuiteId(), data.getTestCaseId(), data.getSessionId(), data.getProjectName());
         TemplateResponse body = response.as(TemplateResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertNotNull(body.getTemplate(), "response should contain template");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertNotNull(body.getTemplate(), "response should contain template");
     }
 
     @Test(groups = {"regression"})
@@ -89,8 +89,8 @@ public class DefectManagementTest extends BaseApiTest {
                 data.getTestSuiteId(), requestBody);
         NewDefectResponse body = response.as(NewDefectResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 201, "creating a defect should return 201");
-        assertions.assertNotNull(body.getDefectId(), "response should contain defect_id");
+        assertions.softAssertEquals(response.getStatusCode(), 201, "creating a defect should return 201");
+        assertions.softAssertNotNull(body.getDefectId(), "response should contain defect_id");
     }
 
     @Test(groups = {"regression"})
@@ -103,7 +103,7 @@ public class DefectManagementTest extends BaseApiTest {
         Response response = new DefectService().updateDefect(data.getToken(), requestBody);
         SuccessMessageResponse body = response.as(SuccessMessageResponse.class);
 
-        assertions.assertEquals(response.getStatusCode(), 200, "should return 200");
-        assertions.assertEquals(body.getSuccess(), Boolean.TRUE, "success should be true");
+        assertions.softAssertEquals(response.getStatusCode(), 200, "should return 200");
+        assertions.softAssertEquals(body.getSuccess(), Boolean.TRUE, "success should be true");
     }
 }
