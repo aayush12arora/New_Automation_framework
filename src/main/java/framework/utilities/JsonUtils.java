@@ -53,4 +53,27 @@ public final class JsonUtils {
     public static boolean resourceExists(String classpathResource) {
         return JsonUtils.class.getClassLoader().getResource(classpathResource) != null;
     }
+
+    /**
+     * Pretty-prints {@code value} as JSON for display (e.g. in a report code block).
+     * Accepts either a raw JSON string (parsed, then re-printed) or a POJO (serialized directly).
+     * Falls back to {@code value}'s own {@code toString()} if it isn't valid/serializable JSON,
+     * and returns {@code ""} for {@code null}.
+     */
+    public static String prettyPrint(Object value) {
+        if (value == null) {
+            return "";
+        }
+        try {
+            if (value instanceof String json) {
+                if (json.isBlank()) {
+                    return "";
+                }
+                return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(MAPPER.readTree(json));
+            }
+            return MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value);
+        } catch (IOException e) {
+            return String.valueOf(value);
+        }
+    }
 }

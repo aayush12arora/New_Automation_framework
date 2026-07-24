@@ -189,7 +189,8 @@ What happens when a test calls, say, `new HomePageService().getTestSuites(token,
    and — because a token was set — `Cookie: ai_assist_token=<jwt>`.
    *(Fresh-per-call means a reused service instance never leaks query params between calls.)*
 5. The request is sent; **`LoggingFilter`** logs method/URI (cookie value masked), then the
-   response status/time/body — to both the SLF4J log and the Extent report.
+   response status/time — to both the SLF4J log and the Extent report. The request/response
+   *bodies* render as their own collapsible JSON tree in the Extent report (not a raw string).
 6. The test deserializes the response into its typed model (`response.as(XResponse.class)`) and
    asserts via `assertions`.
 
@@ -409,8 +410,17 @@ doesn't take a `token` parameter and never calls `setAuthToken(...)` — one met
 
 ## 11. Logging, reporting & masking
 
-- **`LoggingFilter`** logs every request (method + URI) and response (status + time + body) to
-  the SLF4J log **and** the Extent report, via the shared `StepLogger`.
+- **`LoggingFilter`** logs every request (method + URI) and response (status + time) to the
+  SLF4J log **and** the Extent report, via the shared `StepLogger`.
+- **Request/response bodies render as JSON, not a raw string.** `StepLogger.stepWithJson(...)`
+  pretty-prints the body with Jackson and hands it to
+  `MarkupHelper.createCodeBlock(json, CodeLanguage.JSON)`, so the Extent report shows each body
+  as its own collapsible, syntax-highlighted JSON tree — directly under the request/response step,
+  not appended as a wall of text on one line. The SLF4J log line still gets a plain-text
+  (pretty-printed, size-capped) copy for grepping. A body that isn't valid JSON (e.g. an HTML
+  error page) falls back to plain text instead of erroring.
+- **`GET`/no-body calls emit no empty code block** — `stepWithJson` skips it when the payload is
+  `null`/blank.
 - The **auth cookie is masked** — the log shows `Cookie ai_assist_token=***MASKED***`, never the
   JWT. Nothing sensitive reaches the logs or the report.
 - On failure, the **response body is in the report** next to the failed assertion (evidence).

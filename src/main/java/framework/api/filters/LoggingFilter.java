@@ -12,30 +12,31 @@ import org.slf4j.Logger;
 /**
  * REST Assured filter that records every request/response as a test step — to the SLF4J log
  * <em>and</em> the Extent report (via {@link StepLogger}) — with request/response timing.
- * The bearer token is <b>masked</b>, so it never reaches logs or the report.
+ * The auth cookie is <b>masked</b>, so its value never reaches logs or the report.
  *
- * <p>Response bodies are included, so a failed assertion has the response as evidence right
- * next to it in the report.</p>
+ * <p>Request/response bodies render as their own JSON code block in the Extent report (via
+ * {@link StepLogger#stepWithJson}), so a failed assertion has readable, formatted evidence right
+ * next to it instead of a raw string dump.</p>
  */
 public class LoggingFilter implements Filter {
 
     private static final Logger LOG = LoggerUtil.getLogger(LoggingFilter.class);
-    private static final int MAX_BODY = 2000;
 
     @Override
     public Response filter(FilterableRequestSpecification requestSpec,
                            FilterableResponseSpecification responseSpec,
                            FilterContext ctx) {
 
-        StepLogger.step(LOG, "API request: %s %s%s".formatted(
-                requestSpec.getMethod(), requestSpec.getURI(), maskedAuth(requestSpec)));
+        StepLogger.stepWithJson(LOG, "API request: %s %s%s".formatted(
+                requestSpec.getMethod(), requestSpec.getURI(), maskedAuth(requestSpec)),
+                requestSpec.getBody());
 
         long start = System.currentTimeMillis();
         Response response = ctx.next(requestSpec, responseSpec);
         long tookMs = System.currentTimeMillis() - start;
 
-        StepLogger.step(LOG, "API response: HTTP %d in %d ms | body=%s".formatted(
-                response.getStatusCode(), tookMs, truncate(response.getBody().asString())));
+        StepLogger.stepWithJson(LOG, "API response: HTTP %d in %d ms".formatted(
+                response.getStatusCode(), tookMs), response.getBody().asString());
         return response;
     }
 
@@ -43,12 +44,5 @@ public class LoggingFilter implements Filter {
     private static String maskedAuth(FilterableRequestSpecification requestSpec) {
         boolean hasAuthCookie = requestSpec.getCookies().hasCookieWithName("ai_assist_token");
         return hasAuthCookie ? " | Cookie ai_assist_token=***MASKED***" : " | (no auth cookie)";
-    }
-
-    private static String truncate(String body) {
-        if (body == null) {
-            return "";
-        }
-        return body.length() <= MAX_BODY ? body : body.substring(0, MAX_BODY) + "…(truncated)";
     }
 }

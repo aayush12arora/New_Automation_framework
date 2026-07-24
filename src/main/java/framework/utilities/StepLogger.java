@@ -2,6 +2,8 @@ package framework.utilities;
 
 import com.aventstack.extentreports.MediaEntityBuilder;
 import com.aventstack.extentreports.Status;
+import com.aventstack.extentreports.markuputils.CodeLanguage;
+import com.aventstack.extentreports.markuputils.MarkupHelper;
 import framework.constants.FrameworkConstants;
 import framework.reporting.ExtentReportManager;
 import org.slf4j.Logger;
@@ -12,6 +14,8 @@ import org.slf4j.Logger;
  * added to the Extent report with a screenshot attached (configurable).
  */
 public final class StepLogger {
+
+    private static final int MAX_CODE_BLOCK = 10_000;
 
     private StepLogger() {
         // Prevent instantiation.
@@ -32,6 +36,31 @@ public final class StepLogger {
             }
         }
         ExtentReportManager.getTest().log(Status.INFO, message);
+    }
+
+    /**
+     * Records a step and, when a report node exists, renders {@code payload} underneath it as a
+     * dedicated JSON code block — instead of dumping it inline as a truncated plain-text string.
+     * {@code payload} may be a raw JSON string or a POJO (e.g. a REST Assured request body);
+     * {@code null}/blank payloads log just the message, with no empty code block.
+     */
+    public static void stepWithJson(Logger log, String message, Object payload) {
+        String pretty = truncate(JsonUtils.prettyPrint(payload));
+        log.info(pretty.isEmpty() ? message : message + " | body=" + pretty);
+        if (!ExtentReportManager.hasTest()) {
+            return;
+        }
+        ExtentReportManager.getTest().log(Status.INFO, message);
+        if (!pretty.isEmpty()) {
+            ExtentReportManager.getTest().log(Status.INFO, MarkupHelper.createCodeBlock(pretty, CodeLanguage.JSON));
+        }
+    }
+
+    private static String truncate(String body) {
+        if (body.length() <= MAX_CODE_BLOCK) {
+            return body;
+        }
+        return body.substring(0, MAX_CODE_BLOCK) + "\n…(truncated)";
     }
 
     private static boolean screenshotEachStep() {
