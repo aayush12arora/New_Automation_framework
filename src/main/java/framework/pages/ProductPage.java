@@ -141,13 +141,16 @@ public class ProductPage extends BasePage {
                 scrollToCenter(button);
                 js("arguments[0].click();", button);
                 WaitUtils.waitFor(d -> {
-                    String cls = d.findElements(buttons).get(index).getDomAttribute("class");
+                    List<WebElement> current = d.findElements(buttons);
+                    if (current.size() <= index) {
+                        return false; // list is mid re-render
+                    }
+                    String cls = current.get(index).getDomAttribute("class");
                     return cls != null && cls.contains(activeClass);
                 });
-                StepLogger.step(log, "Selected %s #%d (%s)".formatted(label, index,
-                        textContent(findAll(buttons).get(index))));
+                StepLogger.step(log, "Selected %s #%d".formatted(label, index));
                 return;
-            } catch (StaleElementReferenceException | TimeoutException e) {
+            } catch (StaleElementReferenceException | TimeoutException | IndexOutOfBoundsException e) {
                 log.debug("Selecting {} #{} attempt {} did not stick: {}", label, index, attempt, e.getClass().getSimpleName());
             }
         }
