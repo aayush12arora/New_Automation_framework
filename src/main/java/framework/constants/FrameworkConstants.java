@@ -20,6 +20,28 @@ public final class FrameworkConstants {
     public static final String IMPLICIT_WAIT = "implicitWait";
     public static final String EXPLICIT_WAIT = "explicitWait";
     public static final String SCREENSHOT_EACH_STEP = "screenshotOnEachStep";
+    public static final String PAGE_LOAD_TIMEOUT = "pageLoadTimeout";
+    public static final String WINDOW_SIZE = "windowSize";
+
+    // Torsavo application property keys.
+    /** Backend REST base URL (e.g. http://localhost:8000/api). Blank = derived from {@link #URL}. */
+    public static final String API_URL = "apiUrl";
+    /** Optional fixed customer account; blank = a fresh account is registered per test. */
+    public static final String TEST_USER_EMAIL = "testUserEmail";
+    public static final String TEST_USER_PASSWORD = "testUserPassword";
+    /** Optional admin account; admin-only tests are skipped when blank. */
+    public static final String ADMIN_EMAIL = "adminEmail";
+    public static final String ADMIN_PASSWORD = "adminPassword";
+    /** false = skip tests that create accounts/orders (use on production). */
+    public static final String CREATE_TEST_DATA = "createTestData";
+    /** Domain used for throwaway customer e-mails. */
+    public static final String TEST_EMAIL_DOMAIN = "testEmailDomain";
+    /** Pieces needed for free shipping (FREE_SHIPPING_MIN_ITEMS on the server). */
+    public static final String FREE_SHIPPING_MIN_ITEMS = "freeShippingMinItems";
+    /** Brand name shown in page titles. */
+    public static final String STORE_NAME = "storeName";
+    /** Store's home state for GST (CGST+SGST inside it, IGST outside). */
+    public static final String GST_HOME_STATE = "gstHomeState";
 
     // Retry property keys.
     public static final String RETRY_ENABLED = "retryEnabled";

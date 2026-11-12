@@ -5,46 +5,66 @@ import framework.data.customer.CustomerData;
 import org.openqa.selenium.By;
 
 /**
- * Page Object for the login screen.
- * Holds locators and business methods only — no assertions,
- * no TestNG annotations, no validation logic.
+ * Torsavo sign-in modal ({@code /login}). The page renders the landing page behind a
+ * glass overlay; the form itself has no ids, so fields are located by type inside the form.
+ * Holds locators and business methods only — no assertions.
  */
 public class LoginPage extends BasePage {
 
-    private final By usernameField = By.id("username");
-    private final By passwordField = By.id("password");
-    private final By loginButton = By.cssSelector("button[type='submit']");
-    private final By errorMessage = By.id("error");
+    /** The home page (with its own newsletter form) renders behind the modal, so scope to the sign-in form. */
+    private static final String FORM = "//form[.//input[@type='password']]";
 
-    public void enterUsername(String username) {
-        type(usernameField, username);
+    private final By emailField = By.xpath(FORM + "//input[@type='email']");
+    private final By passwordField = By.xpath(FORM + "//input[@type='password']");
+    private final By signInButton = By.xpath(FORM + "//button[@type='submit']");
+    private final By errorMessage = By.xpath(FORM + "//div[contains(@style,'rgb(220, 38, 38)') or contains(@style,'#dc2626')]");
+    private final By heading = By.xpath("//h2[normalize-space(.)='Welcome Back']");
+    private final By googleButton = By.xpath("//button[contains(normalize-space(.),'Continue with Google')]");
+    private final By createAccountLink = By.xpath("//a[normalize-space(.)='Create Account']");
+
+    public boolean isLoaded() {
+        return isDisplayed(heading) && isDisplayed(emailField);
+    }
+
+    public void enterEmail(String email) {
+        type(emailField, email);
     }
 
     public void enterPassword(String password) {
         type(passwordField, password);
     }
 
-    public void clickLogin() {
-        click(loginButton);
+    public void clickSignIn() {
+        click(signInButton);
     }
 
-    /** Enters credentials and submits the form. */
-    public void login(String username, String password) {
-        enterUsername(username);
+    public void login(String email, String password) {
+        enterEmail(email);
         enterPassword(password);
-        clickLogin();
+        clickSignIn();
     }
 
-    /** Convenience overload: logs in using credentials from a {@link CustomerData} object. */
     public void login(CustomerData customerData) {
-        login(customerData.getUsername(), customerData.getPassword());
+        login(customerData.getEmail(), customerData.getPassword());
     }
 
-    public String getErrorMessage() {
+    public String errorMessage() {
         return getText(errorMessage);
     }
 
-    public boolean isLoginButtonDisplayed() {
-        return isDisplayed(loginButton);
+    public boolean isGoogleSignInShown() {
+        return isDisplayed(googleButton);
+    }
+
+    public void clickCreateAccount() {
+        click(createAccountLink);
+    }
+
+    public String emailValidationMessage() {
+        return validationMessage(emailField);
+    }
+
+    public String passwordValidationMessage() {
+        return validationMessage(passwordField);
     }
 }

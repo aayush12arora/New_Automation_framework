@@ -20,15 +20,15 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Set up Firefox
-        uses: browser-actions/setup-firefox@v1
-
       - name: Run tests (headless)
         env:
           # Add QTEST_API_TOKEN under Settings > Secrets and variables > Actions.
           # Results upload is skipped (harmlessly) if it or qtestTestCycle is unset.
           QTEST_API_TOKEN: ${{ secrets.QTEST_API_TOKEN }}
-        run: mvn -B --no-transfer-progress clean test -Dheadless=true
+          # Store under test: set TORSAVO_URL (and TORSAVO_API_URL if the API host is not
+          # api.<domain>) under Settings > Secrets and variables > Actions > Variables.
+          # Chrome is preinstalled on ubuntu-latest runners.
+        run: mvn -B --no-transfer-progress clean test -Dheadless=true -Dbrowser=chrome -Durl=${{ vars.TORSAVO_URL }} -DapiUrl=${{ vars.TORSAVO_API_URL }}
 
       - name: Upload reports
         if: always()   # keep the report even when tests fail

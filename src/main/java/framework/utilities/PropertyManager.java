@@ -53,6 +53,16 @@ public final class PropertyManager {
         return value.trim();
     }
 
+    /** Like {@link #get(String)} but returns {@code defaultValue} when the key is missing or blank. */
+    public static String getOrDefault(String key, String defaultValue) {
+        String override = System.getProperty(key);
+        if (override != null && !override.isBlank()) {
+            return override.trim();
+        }
+        String value = PROPERTIES.getProperty(key);
+        return (value == null || value.isBlank()) ? defaultValue : value.trim();
+    }
+
     public static boolean getBoolean(String key) {
         return Boolean.parseBoolean(get(key));
     }

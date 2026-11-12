@@ -4,6 +4,7 @@ import framework.constants.FrameworkConstants;
 import framework.utilities.LoggerUtil;
 import framework.utilities.PropertyManager;
 import framework.utilities.StepLogger;
+import org.openqa.selenium.Dimension;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -37,7 +38,15 @@ public final class DriverManager {
 
         WebDriver driver = createDriver(browser, headless);
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(implicitWait));
-        driver.manage().window().maximize();
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(
+                Integer.parseInt(PropertyManager.getOrDefault(FrameworkConstants.PAGE_LOAD_TIMEOUT, "60"))));
+        // Headless browsers ignore maximize(), so give them a fixed desktop-sized window.
+        // The storefront hides the shop sidebar below desktop widths, so size matters.
+        String[] size = PropertyManager.getOrDefault(FrameworkConstants.WINDOW_SIZE, "1920x1080").split("x");
+        driver.manage().window().setSize(new Dimension(Integer.parseInt(size[0].trim()), Integer.parseInt(size[1].trim())));
+        if (!headless) {
+            driver.manage().window().maximize();
+        }
 
         DRIVER.set(driver);
         StepLogger.step(LOG, "Driver created for browser '%s' (headless=%s)".formatted(browser, headless));

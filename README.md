@@ -14,6 +14,73 @@ test categorisation, database/API validation, and results publishing to qTest.
 
 ---
 
+## Torsavo storefront E2E suite
+
+The framework is configured for the **Torsavo** menswear store (`ecomfrontend` + `ecombackend`).
+It has **100 end-to-end tests**: **40 are tagged `smoke`**, and all 100 are tagged `regression`.
+
+### Point it at an environment
+
+Edit `src/main/resources/framework.properties`. Usually only these change:
+
+```properties
+url=https://www.torsavo.com     # the storefront under test
+browser=chrome                  # chrome | firefox | edge
+apiUrl=                         # blank = derived: localhost -> :8000/api, otherwise https://api.<domain>/api
+createTestData=true             # false on production: skips tests that register customers / create orders
+```
+
+Every value can also be overridden per run, e.g. `mvn test -Durl=http://localhost:3000 -Dbrowser=edge`.
+
+- **Accounts:** signed-in tests register their own throwaway customer (`torsavo.qa.…@example.com`)
+  through the API, so parallel tests never share a cart. Registration sends no e-mail. With
+  `createTestData=false`, set `testUserEmail`/`testUserPassword` instead.
+- **Admin:** set `adminEmail`/`adminPassword` to run the two admin-dashboard tests (skipped otherwise).
+- **Launch queue:** if the store runs with `NEXT_PUBLIC_PRELAUNCH=true`, every shop page redirects to
+  `/launch`, and each test fails at setup with a clear message. Run against a build with the launch queue off.
+- **Orders:** `placeOrderOpensRazorpayPayment` creates a real **unpaid** order. It stops when the
+  Razorpay window opens and never pays. The backend needs both `RAZORPAY_KEY_ID` and
+  `RAZORPAY_KEY_SECRET`; if payment can't start, the failure message quotes the reason the page shows.
+
+### Run
+
+```bash
+mvn test -Dgroups=smoke         # 40 business-critical checks
+mvn test                        # all 100
+mvn test -Dheadless=true        # no visible browser (CI)
+```
+
+### Coverage (tests / smoke)
+
+| Class | Tests | Smoke | What it protects |
+|---|---|---|---|
+| `HomePageTest` | 7 | 3 | Title, hero, featured products from API, nav, logo |
+| `HeaderSearchTest` | 5 | 1 | Live suggestions, suggestion → product, Enter → shop, no false matches, case-insensitive |
+| `LoginTest` | 9 | 4 | Sign in, bad credentials, HTML validation, `?redirect=`, logout, session restore |
+| `RegisterTest` | 6 | 2 | Register + auto sign-in, duplicate e-mail, short password, required fields |
+| `ShopTest` | 12 | 4 | Grid, cards, category filter + deep link + unknown category, search, sort, clear filters |
+| `ProductPageTest` | 13 | 5 | Price vs API, size/colour required, add to cart, out of stock, Buy Now, tabs, reviews |
+| `CartTest` | 11 | 5 | Lines + options, quantity, remove, per-size lines, persistence, totals, free-shipping rule |
+| `CheckoutTest` | 11 | 5 | Summary, required fields, guest cart → login → checkout, Razorpay hand-off, coupon, GST, pincode |
+| `AccountTest` | 7 | 3 | My Orders, profile view/update, guest redirects, unknown order |
+| `ContentPagesTest` | 10 | 4 | About, Contact (WhatsApp, GSTIN, grievance officer), Size guide, Collections, 4 policies |
+| `FooterAndSeoTest` | 5 | 2 | Footer links, 404, robots.txt, sitemap.xml |
+| `AdminTest` | 4 | 2 | Guests and customers blocked from `/admin`; dashboard (needs admin credentials) |
+
+**Known app defects these tests catch (they fail until fixed):**
+
+- `CheckoutTest.checkoutSurvivesPageReload`: reloading `/checkout` (or opening `/account/profile`
+  directly) sends a signed-in customer to `/login`. The pages check `user` before `AuthContext` has
+  restored the session, and `AuthContext` doesn't expose its `loading` flag.
+- `RegisterTest.shortPasswordIsRejected`: the backend's `registerSchema` (password min 6, valid e-mail)
+  is never applied in `auth.service.register`, so any password length is accepted.
+
+Torsavo-specific code: `framework/base/TorsavoBaseTest` (fast API sign-in, add-to-cart helper,
+launch-queue guard), `framework/api/torsavo/TorsavoApi` (test setup only), `framework/pages/*`
+(page objects), `framework/pages/components/*` (header, footer).
+
+---
+
 ## Table of contents
 
 1. [Technology stack](#1-technology-stack)
@@ -434,16 +501,29 @@ upload the Extent report as a build artifact.
 `src/main/resources/framework.properties`:
 
 ```properties
-browser=firefox            # firefox | chrome | edge
+url=http://localhost:3000  # storefront under test (overridable per test via super(url))
+browser=chrome             # firefox | chrome | edge
+apiUrl=                    # backend API; blank = derived from url
 headless=false             # run the browser headless
-url=https://example.com    # default launch URL (overridable per test via super(url))
-implicitWait=10            # seconds — global implicit wait
+windowSize=1920x1080       # used headless (and before maximise)
+implicitWait=0             # seconds — 0: explicit waits only
 explicitWait=20            # seconds — used by WaitUtils
+pageLoadTimeout=60         # seconds
 
-screenshotOnEachStep=true  # screenshot every step into the Extent report (false = only pass/fail)
+screenshotOnEachStep=false # screenshot every step into the Extent report (false = only pass/fail)
 
 retryEnabled=true          # retry failed tests
-retryCount=2               # max retries after the first failure
+retryCount=1               # max retries after the first failure
+
+createTestData=true        # false = skip tests that register customers / create orders
+testEmailDomain=example.com
+testUserEmail=             # fixed customer, used when createTestData=false
+testUserPassword=
+adminEmail=                # admin tests skipped when blank
+adminPassword=
+storeName=Torsavo          # expected in page titles
+freeShippingMinItems=2     # keep in sync with the store's FREE_SHIPPING_MIN_ITEMS
+gstHomeState=Uttar Pradesh # CGST+SGST inside, IGST outside
 
 dataSource=json            # json | excel — how CustomerData is loaded
 
