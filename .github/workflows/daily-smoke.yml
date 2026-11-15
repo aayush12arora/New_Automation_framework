@@ -9,6 +9,9 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    env:
+      # Results e-mail is sent only when the SMTP_PASSWORD secret exists (see README)
+      SMTP_CONFIGURED: ${{ secrets.SMTP_PASSWORD != '' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -27,6 +30,38 @@ jobs:
           # api.<domain>) under Settings > Secrets and variables > Actions > Variables.
           # Chrome is preinstalled on ubuntu-latest runners.
         run: mvn -B --no-transfer-progress clean test -Dgroups=smoke -Dheadless=true -Dbrowser=chrome -Durl=${{ vars.TORSAVO_URL }} -DapiUrl=${{ vars.TORSAVO_API_URL }}
+
+      - name: Summarise results for e-mail
+        id: summary
+        if: always()
+        run: |
+          python3 .github/scripts/test_summary.py "Daily Smoke" \
+            "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ vars.TORSAVO_URL }}"
+          # Attach the report only if it fits Gmail's 25 MB limit (base64 adds ~33%);
+          # it is always available under the run's Artifacts.
+          if [ -d target/extent-report ]; then
+            (cd target && zip -qr extent-report.zip extent-report)
+            if [ "$(stat -c%s target/extent-report.zip)" -lt 18874368 ]; then
+              echo "attachment=target/extent-report.zip" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: E-mail results
+        if: always() && env.SMTP_CONFIGURED == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          # Google Workspace SMTP by default; override with SMTP_SERVER / SMTP_PORT variables
+          server_address: ${{ vars.SMTP_SERVER || 'smtp.gmail.com' }}
+          server_port: ${{ vars.SMTP_PORT || '465' }}
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from: Torsavo QA <${{ vars.REPORT_EMAIL_FROM || 'info@torsavo.com' }}>
+          to: ${{ vars.REPORT_EMAIL_TO || 'aayush12arora@gmail.com' }}
+          subject: ${{ steps.summary.outputs.subject || format('[Torsavo Daily Smoke] run {0} finished', github.run_number) }}
+          html_body: file://target/email-body.html
+          attachments: ${{ steps.summary.outputs.attachment }}
 
       - name: Upload reports
         if: always()

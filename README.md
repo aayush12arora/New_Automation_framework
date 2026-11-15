@@ -494,6 +494,27 @@ upload the Extent report as a build artifact.
   the month; the gap resets at month boundaries (31st → 1st are consecutive).
 - Scheduled workflows only run on the repository's **default branch**.
 
+**Results e-mail.** After every run (pass or fail) each workflow e-mails a summary: pass/fail/skip
+counts, each failed test with its reason, and a link to the run. The zipped Extent report is attached
+when it is under 18 MB (a full 100-test run is ~35 MB because screenshots are embedded); otherwise
+download it from the run's *Artifacts*. Test the e-mail locally with `.github/scripts/send_report_email.py`.
+`.github/scripts/test_summary.py` builds it from TestNG's `testng-results.xml`, counting a retried
+test once by its final attempt. It is sent by SMTP via `dawidd6/action-send-mail`.
+
+Setup (*Settings → Secrets and variables → Actions*):
+
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `SMTP_USERNAME` | `info@torsavo.com` |
+| Secret | `SMTP_PASSWORD` | The Google **app password** for that account: the same value as `SMTP_PASS` on the `torsavo-prod` Lambda, which already sends the waitlist e-mails |
+| Variable (optional) | `REPORT_EMAIL_TO` | Recipient(s), comma-separated. Default `aayush12arora@gmail.com` |
+| Variable (optional) | `REPORT_EMAIL_FROM` | Sender address. Default `info@torsavo.com` (must be the SMTP account or one of its aliases) |
+| Variable (optional) | `SMTP_SERVER` / `SMTP_PORT` | Default `smtp.gmail.com` / `465` (SSL). For Amazon SES use its SMTP endpoint and SES SMTP credentials |
+
+Without `SMTP_PASSWORD` the e-mail step is skipped and the run still passes. GitHub itself only
+sends its built-in "workflow failed" notifications to your GitHub account e-mail, and it has no
+WhatsApp channel. WhatsApp alerts would need a provider such as Twilio or the WhatsApp Cloud API.
+
 ---
 
 ## 7. Configuration reference
