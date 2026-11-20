@@ -101,6 +101,18 @@ public class CheckoutPage extends BasePage {
         }
     }
 
+    /** Courier under "Delivery available" ("Ships via X · Surface delivery"); "" when not shown. */
+    public String shipsViaCourier() {
+        By courier = By.xpath("//div[starts-with(normalize-space(.),'Ships via')]/strong");
+        return isDisplayed(courier, 5) ? textContent(courier) : "";
+    }
+
+    /** Text of the delivery estimate under "Delivery available" (date or days in transit). */
+    public String deliveryEstimateText() {
+        By estimate = By.xpath("//*[contains(normalize-space(text()),'Delivery available')]/following-sibling::div[1]");
+        return isDisplayed(estimate, 5) ? textContent(estimate) : "";
+    }
+
     // ------------------------------------------------------------------ Coupon
 
     public void applyCoupon(String code) {

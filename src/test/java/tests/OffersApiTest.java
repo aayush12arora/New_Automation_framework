@@ -78,6 +78,27 @@ public class OffersApiTest extends TorsavoBaseTest {
         }
     }
 
+    @Test(groups = {REGRESSION}, description = "Only bundles cheaper than their dearest pieces bought separately are advertised")
+    public void listedBundlesAlwaysSaveMoney() {
+        OffersInfo offers = TorsavoApi.offersOrSkip();
+        if (!offers.bundles() || offers.raw().path("bundles").isEmpty()) {
+            throw new SkipException("FEATURE_BUNDLES is off or BUNDLE_OFFERS is empty");
+        }
+        List<ProductInfo> catalogue = TorsavoApi.products();
+        for (JsonNode b : offers.raw().path("bundles")) {
+            double dearest = 0;
+            for (JsonNode item : b.path("items")) {
+                String category = item.path("category").asText();
+                double priciest = catalogue.stream().filter(p -> p.category().equalsIgnoreCase(category))
+                        .mapToDouble(ProductInfo::price).max().orElse(0);
+                dearest += priciest * item.path("quantity").asInt();
+            }
+            assertions.softAssertTrue(b.path("price").asDouble() < dearest,
+                    "Bundle '" + b.path("title").asText() + "' (₹" + b.path("price").asDouble()
+                            + ") should cost less than its dearest pieces (₹" + dearest + "), or be hidden");
+        }
+    }
+
     @Test(groups = {REGRESSION}, description = "Bundle quote for an empty cart is zero")
     public void bundleQuoteForEmptyCartIsZero() {
         TorsavoApi.offersOrSkip();
@@ -136,9 +157,10 @@ public class OffersApiTest extends TorsavoBaseTest {
         for (JsonNode need : bundle.path("items")) {
             String category = need.path("category").asText();
             int qty = need.path("quantity").asInt();
+            // Dearest piece in stock: bundles are only listed when they beat the dearest pieces
             ProductInfo p = catalogue.stream()
                     .filter(x -> x.category().equalsIgnoreCase(category) && x.stock() >= qty)
-                    .findFirst()
+                    .max((a, b) -> Double.compare(a.price(), b.price()))
                     .orElseThrow(() -> new SkipException("No product in '" + category + "' with " + qty + " in stock"));
             items.add(Map.of("productId", p.id(), "quantity", qty));
             original += p.price() * qty;
@@ -148,7 +170,8 @@ public class OffersApiTest extends TorsavoBaseTest {
         JsonNode quote = TorsavoApi.json(res, "/offers/quote");
         double bundlePrice = bundle.path("price").asDouble();
         if (original <= bundlePrice) {
-            throw new SkipException("These pieces already cost less than the bundle (₹" + original + " ≤ ₹" + bundlePrice + ")");
+            // Listed bundles beat the dearest pieces in the catalogue; the dearest may be out of stock
+            throw new SkipException("The in-stock pieces cost less than the bundle (₹" + original + " ≤ ₹" + bundlePrice + ")");
         }
         assertions.assertTrue(quote.path("bundles").size() > 0, "Bundle '" + bundle.path("title").asText() + "' should apply — " + quote);
         double savings = 0;

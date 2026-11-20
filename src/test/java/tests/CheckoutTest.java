@@ -108,6 +108,29 @@ public class CheckoutTest extends TorsavoBaseTest {
                 "A delivery available / not available verdict should appear for pincode " + PINCODE);
     }
 
+    @Test(groups = {REGRESSION}, description = "Checkout shows the courier and estimate the delivery quote picked")
+    public void deliveryShowsQuotedCourier() {
+        ProductInfo product = TorsavoApi.inStockProduct();
+        TorsavoApi.HttpResult res = TorsavoApi.postJson("/shipping/quote", java.util.Map.of("pincode", PINCODE,
+                "items", List.of(java.util.Map.of("productId", product.id(), "quantity", 1))), null);
+        com.fasterxml.jackson.databind.JsonNode quote = TorsavoApi.json(res, "/shipping/quote");
+        if (res.status() != 200 || !quote.path("serviceable").asBoolean() || quote.path("courierName").asText().isBlank()) {
+            throw new org.testng.SkipException("No courier quote for " + PINCODE + ": " + res.body());
+        }
+        CheckoutPage checkout = checkoutWithItem();
+        checkout.enterPincode(PINCODE);
+        assertions.assertTrue(checkout.deliveryVerdictShown(), "Delivery verdict for " + PINCODE);
+        assertions.assertEquals(checkout.shipsViaCourier(), quote.path("courierName").asText(),
+                "Courier shown should be the one the quote picked across providers");
+        String estimate = checkout.deliveryEstimateText();
+        if (!quote.path("etd").asText().isBlank()) {
+            assertions.softAssertContains(estimate, "Estimated delivery by", "Delivery date shown when the courier gives one");
+        } else if (quote.path("estimatedDays").asInt() > 0) {
+            assertions.softAssertContains(estimate, "Estimated delivery in", "Days in transit shown when there is no date");
+        }
+        assertions.softAssertTrue(!estimate.contains("—"), "No placeholder dash when the courier gives no date — got '" + estimate + "'");
+    }
+
     /**
      * Reloading checkout while signed in must keep the customer on checkout.
      * Known defect at time of writing: checkout redirects to /login on the first render
