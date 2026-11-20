@@ -157,13 +157,25 @@ public class OffersApiTest extends TorsavoBaseTest {
         for (JsonNode need : bundle.path("items")) {
             String category = need.path("category").asText();
             int qty = need.path("quantity").asInt();
-            // Dearest piece in stock: bundles are only listed when they beat the dearest pieces
-            ProductInfo p = catalogue.stream()
-                    .filter(x -> x.category().equalsIgnoreCase(category) && x.stock() >= qty)
-                    .max((a, b) -> Double.compare(a.price(), b.price()))
-                    .orElseThrow(() -> new SkipException("No product in '" + category + "' with " + qty + " in stock"));
-            items.add(Map.of("productId", p.id(), "quantity", qty));
-            original += p.price() * qty;
+            // Dearest pieces in stock first (bundles are only listed when they beat the dearest
+            // pieces); "any 2 jeans" may be filled from different products
+            List<ProductInfo> inCategory = catalogue.stream()
+                    .filter(x -> x.category().equalsIgnoreCase(category) && x.stock() > 0)
+                    .sorted((a, b) -> Double.compare(b.price(), a.price()))
+                    .toList();
+            int left = qty;
+            for (ProductInfo p : inCategory) {
+                if (left == 0) {
+                    break;
+                }
+                int take = Math.min(left, p.stock());
+                items.add(Map.of("productId", p.id(), "quantity", take));
+                original += p.price() * take;
+                left -= take;
+            }
+            if (left > 0) {
+                throw new SkipException("Only " + (qty - left) + " of " + qty + " '" + category + "' pieces in stock");
+            }
         }
         HttpResult res = TorsavoApi.postJson("/offers/quote", Map.of("items", items), null);
         assertions.assertEquals(res.status(), 200, "POST /offers/quote status — " + res.body());

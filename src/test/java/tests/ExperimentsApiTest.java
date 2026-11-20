@@ -130,7 +130,7 @@ public class ExperimentsApiTest extends TorsavoBaseTest {
         List<String> headers = getDriver().findElements(header).stream().map(e -> e.getText().trim().toLowerCase()).toList();
         assertions.assertTrue(headers.contains("popup") && headers.contains("control"),
                 "Results table should have popup and control columns — got " + headers);
-        assertions.softAssertTrue(!getDriver().findElements(By.xpath("//td[normalize-space(.)='Popup switch rate']")).isEmpty(),
+        assertions.softAssertTrue(!getDriver().findElements(By.xpath("//td[starts-with(normalize-space(.),'Popup switch rate')]")).isEmpty(),
                 "Popup switch rate row should be shown");
     }
 }

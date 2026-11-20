@@ -9,9 +9,9 @@
          every signed-in test registers its own throwaway customer, so tests never share
          a cart. Raise thread-count on a bigger machine (consider headless=true).
 
-         139 tests: 51 tagged "smoke" (+ regression), 88 "regression" only.
+         141 tests: 51 tagged "smoke" (+ regression), 90 "regression" only.
            mvn test -Dgroups=smoke         -> 51 business-critical checks
-           mvn test -Dgroups=regression    -> all 139 -->
+           mvn test -Dgroups=regression    -> all 141 -->
     <test name="Torsavo Storefront">
         <classes>
             <class name="tests.HomePageTest"/>

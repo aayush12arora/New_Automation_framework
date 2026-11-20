@@ -17,7 +17,7 @@ test categorisation, database/API validation, and results publishing to qTest.
 ## Torsavo storefront E2E suite
 
 The framework is configured for the **Torsavo** menswear store (`ecomfrontend` + `ecombackend`).
-It has **139 end-to-end tests**: **51 are tagged `smoke`**, and all 139 are tagged `regression`.
+It has **141 end-to-end tests**: **51 are tagged `smoke`**, and all 141 are tagged `regression`.
 
 ### Point it at an environment
 
@@ -46,7 +46,7 @@ Every value can also be overridden per run, e.g. `mvn test -Durl=http://localhos
 
 ```bash
 mvn test -Dgroups=smoke         # 51 business-critical checks
-mvn test                        # all 139
+mvn test                        # all 141
 mvn test -Dheadless=true        # no visible browser (CI)
 ```
 
@@ -61,12 +61,12 @@ mvn test -Dheadless=true        # no visible browser (CI)
 | `ShopTest` | 12 | 4 | Grid, cards, category filter + deep link + unknown category, search, sort, clear filters |
 | `ProductPageTest` | 13 | 5 | Price vs API, size/colour required, add to cart, out of stock, Buy Now, tabs, reviews |
 | `CartTest` | 11 | 5 | Lines + options, quantity, remove, per-size lines, persistence, totals, free-shipping rule |
-| `CheckoutTest` | 11 | 5 | Summary, required fields, guest cart → login → checkout, Razorpay hand-off, coupon, GST, pincode |
+| `CheckoutTest` | 12 | 5 | Summary, required fields, guest cart → login → checkout, Razorpay hand-off, coupon, GST, pincode, quoted courier + estimate |
 | `AccountTest` | 7 | 3 | My Orders, profile view/update, guest redirects, unknown order |
 | `ContentPagesTest` | 10 | 4 | About, Contact (WhatsApp, GSTIN, grievance officer), Size guide, Collections, 4 policies |
 | `FooterAndSeoTest` | 5 | 2 | Footer links, 404, robots.txt, sitemap.xml |
 | `AdminTest` | 4 | 2 | Guests and customers blocked from `/admin`; dashboard (needs admin credentials) |
-| `OffersApiTest` | 12 | 2 | `GET /offers` contract, bundle quote (validation, single piece, complete bundle), shipping quote by payment mode, idle-checkout code |
+| `OffersApiTest` | 13 | 2 | `GET /offers` contract, only money-saving bundles listed, bundle quote (validation, single piece, complete bundle), shipping quote by payment mode, idle-checkout code |
 | `PaymentModeOrderApiTest` | 8 | 3 | Server pricing on `POST /orders`: prepaid discount, COD advance / cash due, COD off, bad mode, A/B group on order, Razorpay charges only the advance |
 | `ExperimentsApiTest` | 8 | 1 | cod_popup group stable per account, sign-in required, event validation, admin-only results, admin A/B page |
 | `PaymentMethodTest` | 11 | 5 | Checkout Pay online / COD radios, prepaid discount row, advance split, nudge, COD order → Razorpay, popup vs control group, `/offers` page |
