@@ -17,7 +17,7 @@ test categorisation, database/API validation, and results publishing to qTest.
 ## Torsavo storefront E2E suite
 
 The framework is configured for the **Torsavo** menswear store (`ecomfrontend` + `ecombackend`).
-It has **100 end-to-end tests**: **40 are tagged `smoke`**, and all 100 are tagged `regression`.
+It has **139 end-to-end tests**: **51 are tagged `smoke`**, and all 139 are tagged `regression`.
 
 ### Point it at an environment
 
@@ -45,8 +45,8 @@ Every value can also be overridden per run, e.g. `mvn test -Durl=http://localhos
 ### Run
 
 ```bash
-mvn test -Dgroups=smoke         # 40 business-critical checks
-mvn test                        # all 100
+mvn test -Dgroups=smoke         # 51 business-critical checks
+mvn test                        # all 139
 mvn test -Dheadless=true        # no visible browser (CI)
 ```
 
@@ -66,6 +66,16 @@ mvn test -Dheadless=true        # no visible browser (CI)
 | `ContentPagesTest` | 10 | 4 | About, Contact (WhatsApp, GSTIN, grievance officer), Size guide, Collections, 4 policies |
 | `FooterAndSeoTest` | 5 | 2 | Footer links, 404, robots.txt, sitemap.xml |
 | `AdminTest` | 4 | 2 | Guests and customers blocked from `/admin`; dashboard (needs admin credentials) |
+| `OffersApiTest` | 12 | 2 | `GET /offers` contract, bundle quote (validation, single piece, complete bundle), shipping quote by payment mode, idle-checkout code |
+| `PaymentModeOrderApiTest` | 8 | 3 | Server pricing on `POST /orders`: prepaid discount, COD advance / cash due, COD off, bad mode, A/B group on order, Razorpay charges only the advance |
+| `ExperimentsApiTest` | 8 | 1 | cod_popup group stable per account, sign-in required, event validation, admin-only results, admin A/B page |
+| `PaymentMethodTest` | 11 | 5 | Checkout Pay online / COD radios, prepaid discount row, advance split, nudge, COD order → Razorpay, popup vs control group, `/offers` page |
+
+**Offers / COD / A/B tests** (the last four classes) read every expectation (COD on/off, advance,
+prepaid %, bundles, idle offer) from `GET /api/offers`, so they follow the store's env. Against a backend
+without that route they **skip** with "release not deployed", and start enforcing once it is live. The
+popup tests register throwaway customers until one lands in the wanted A/B group (`customerInCodPopupGroup`).
+Order tests cancel the unpaid orders they create.
 
 **Known app defects these tests catch (they fail until fixed):**
 

@@ -9,9 +9,9 @@
          every signed-in test registers its own throwaway customer, so tests never share
          a cart. Raise thread-count on a bigger machine (consider headless=true).
 
-         100 tests: 40 tagged "smoke" (+ regression), 60 "regression" only.
-           mvn test -Dgroups=smoke         -> 40 business-critical checks
-           mvn test -Dgroups=regression    -> all 100 -->
+         139 tests: 51 tagged "smoke" (+ regression), 88 "regression" only.
+           mvn test -Dgroups=smoke         -> 51 business-critical checks
+           mvn test -Dgroups=regression    -> all 139 -->
     <test name="Torsavo Storefront">
         <classes>
             <class name="tests.HomePageTest"/>
@@ -26,6 +26,11 @@
             <class name="tests.ContentPagesTest"/>
             <class name="tests.FooterAndSeoTest"/>
             <class name="tests.AdminTest"/>
+            <!-- Offers / COD / A/B release: skip themselves against a backend without /api/offers -->
+            <class name="tests.OffersApiTest"/>
+            <class name="tests.PaymentModeOrderApiTest"/>
+            <class name="tests.ExperimentsApiTest"/>
+            <class name="tests.PaymentMethodTest"/>
         </classes>
     </test>
 </suite>

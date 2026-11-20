@@ -187,7 +187,123 @@ public final class TorsavoApi {
                 .orElse(List.of());
     }
 
+    // ------------------------------------------------------------------ Offers, payment modes, A/B tests
+
+    /**
+     * What {@code GET /offers} reports: the promotions switched on in the backend env and the
+     * payment options (cash on delivery, COD advance, prepaid discount).
+     */
+    public record OffersInfo(boolean loginCouponPopup, boolean idleCheckoutOffer, boolean bundles,
+                             boolean cod, double codAdvance, double prepaidDiscountPercent,
+                             JsonNode raw) { }
+
+    /**
+     * {@code GET /offers}. Skips the test when the backend under test predates the offers /
+     * payment-mode release (Express answers "Route /api/offers not found"), so the suite stays
+     * green against older deployments and starts enforcing as soon as the release is live.
+     */
+    public static OffersInfo offersOrSkip() {
+        HttpResult res = getUrl(apiUrl() + "/offers");
+        skipIfRouteMissing(res, "/offers");
+        JsonNode json = json(res, "/offers");
+        JsonNode features = json.path("features");
+        JsonNode payment = json.path("payment");
+        return new OffersInfo(
+                features.path("loginCouponPopup").asBoolean(), features.path("idleCheckoutOffer").asBoolean(),
+                features.path("bundles").asBoolean(), payment.path("cod").asBoolean(),
+                payment.path("codAdvance").asDouble(), payment.path("prepaidDiscountPercent").asDouble(), json);
+    }
+
+    /** Skips when this backend has no {@code /experiments} routes yet (see {@link #offersOrSkip()}). */
+    public static void requireExperimentsApi() {
+        skipIfRouteMissing(get("/experiments", null), "/experiments");
+    }
+
+    /** The signed-in customer's cod_popup A/B group: {@code popup} or {@code control}. */
+    public static String codPopupVariant(AuthSession session) {
+        HttpResult res = get("/experiments", session.accessToken());
+        skipIfRouteMissing(res, "/experiments");
+        return json(res, "/experiments").path("codPopup").asText();
+    }
+
+    /**
+     * A freshly registered customer in the given cod_popup group. The group is a hash of the
+     * account ID, so this registers throwaway customers until one lands in it (with a 30% popup
+     * share, "popup" takes ~3 tries on average). Skips after {@code maxTries}.
+     */
+    public static AuthSession customerInCodPopupGroup(String variant, int maxTries) {
+        if (!createTestDataAllowed()) {
+            throw new SkipException("createTestData=false — finding a '" + variant + "' customer needs new accounts");
+        }
+        for (int i = 0; i < maxTries; i++) {
+            AuthSession session = registerNewCustomer();
+            if (variant.equals(codPopupVariant(session))) {
+                LOG.info("{} is in cod_popup group '{}'", session.email(), variant);
+                return session;
+            }
+        }
+        throw new SkipException("No customer landed in cod_popup group '" + variant + "' after " + maxTries
+                + " registrations (EXPERIMENT_COD_POPUP_PERCENT may be 0 or 100)");
+    }
+
+    /** Adds a product to the signed-in customer's server-side cart. */
+    public static void addToServerCart(AuthSession session, String productId, int quantity, String size) {
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("productId", productId);
+        body.put("quantity", quantity);
+        if (size != null && !size.isBlank()) {
+            body.put("size", size);
+        }
+        HttpResult res = post("/cart", body, session.accessToken());
+        if (res.status() != 201 && res.status() != 200) {
+            throw new IllegalStateException("Add to cart failed (%d): %s".formatted(res.status(), res.body()));
+        }
+    }
+
+    /** Cancels a test order (best effort: tidies up after tests that create orders). */
+    public static void cancelOrderQuietly(AuthSession session, String orderId) {
+        if (orderId == null || orderId.isBlank()) {
+            return;
+        }
+        try {
+            post("/orders/" + orderId + "/cancel", Map.of(), session.accessToken());
+        } catch (RuntimeException e) {
+            LOG.warn("Could not cancel test order {}: {}", orderId, e.getMessage());
+        }
+    }
+
     // ------------------------------------------------------------------ Raw HTTP
+
+    /** GET an API path (e.g. {@code /offers}), optionally with a bearer token. */
+    public static HttpResult get(String path, String bearer) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(apiUrl() + path))
+                .timeout(Duration.ofSeconds(60)).GET();
+        if (bearer != null) {
+            builder.header("Authorization", "Bearer " + bearer);
+        }
+        return send(builder.build());
+    }
+
+    /** POST JSON to an API path, optionally with a bearer token. */
+    public static HttpResult postJson(String path, Object body, String bearer) {
+        return post(path, body, bearer);
+    }
+
+    /** Parses a response body as JSON. */
+    public static JsonNode json(HttpResult res, String what) {
+        try {
+            return MAPPER.readTree(res.body());
+        } catch (IOException e) {
+            throw new IllegalStateException("Invalid JSON from " + what + " (" + res.status() + "): " + res.body(), e);
+        }
+    }
+
+    private static void skipIfRouteMissing(HttpResult res, String path) {
+        if (res.status() == 404 && res.body().contains("not found") && res.body().contains("Route")) {
+            throw new SkipException("Backend at " + apiUrl() + " has no " + path
+                    + " route yet (offers / COD / A/B release not deployed)");
+        }
+    }
 
     /** GET an absolute URL (used for robots.txt, sitemap.xml etc.). */
     public static HttpResult getUrl(String absoluteUrl) {

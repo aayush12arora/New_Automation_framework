@@ -134,6 +134,159 @@ public class CheckoutPage extends BasePage {
         return ShopPage.parsePrice(getText(totalValue));
     }
 
+    // ------------------------------------------------------------------ Payment method (prepaid / COD)
+
+    private static final String PAY_ONLINE = "Pay online";
+    private static final String COD = "Cash on delivery";
+    private final By paymentGroup = By.cssSelector("div[role='radiogroup'][aria-label='Payment method']");
+    private final By paymentOptionTitles = By.xpath("//div[@role='radiogroup'][@aria-label='Payment method']//label//strong");
+    private final By prepaidDiscountLabel = By.xpath("//div[contains(@class,'summaryRow')]/span[starts-with(normalize-space(.),'Prepaid discount')]");
+    private final By prepaidDiscountValue = By.xpath("//div[contains(@class,'summaryRow')][span[starts-with(normalize-space(.),'Prepaid discount')]]/span[2]");
+    private final By codAdvanceValue = By.xpath("//div[contains(@class,'summaryRow')][span[normalize-space(.)='Pay now (advance)']]/span[2]");
+    private final By codDueValue = By.xpath("//div[contains(@class,'summaryRow')][span[normalize-space(.)='Pay in cash on delivery']]/span[2]");
+    private final By codInlineNudge = By.xpath("//button[normalize-space(.)='Pay online & save']");
+    private final By codPopup = By.cssSelector("div[role='dialog'][aria-labelledby='cod-nudge-title']");
+    private final By codPopupTitle = By.id("cod-nudge-title");
+    private final By codPopupKeepCod = By.xpath("//div[@role='dialog']//button[normalize-space(.)='Keep COD']");
+    private final By codPopupSwitch = By.xpath("//div[@role='dialog']//button[starts-with(normalize-space(.),'Pay online & save')]");
+
+    private By paymentRadio(String title) {
+        return By.xpath("//div[@role='radiogroup'][@aria-label='Payment method']//label[.//strong[normalize-space(.)='"
+                + title + "']]//input[@type='radio']");
+    }
+
+    /** Waits for the payment-method radios (rendered once {@code /offers} has answered). */
+    public CheckoutPage waitForPaymentOptions() {
+        waitForVisible(paymentGroup);
+        return this;
+    }
+
+    /** Titles of the payment options shown, e.g. ["Pay online", "Cash on delivery"]. */
+    public List<String> paymentOptionTitles() {
+        waitForPaymentOptions();
+        return findAll(paymentOptionTitles).stream().map(BasePage::textContent).toList();
+    }
+
+    public boolean isPrepaidSelected() {
+        return waitForPresentRadio(PAY_ONLINE).isSelected();
+    }
+
+    public boolean isCodSelected() {
+        return isPresentNow(paymentRadio(COD)) && waitForPresentRadio(COD).isSelected();
+    }
+
+    /** Note under "Pay online", e.g. "UPI, cards, net banking. Save 6% (₹60) on this order." */
+    public String prepaidOptionNote() {
+        return textContent(By.xpath("//div[@role='radiogroup']//label[.//strong[normalize-space(.)='" + PAY_ONLINE + "']]//p"));
+    }
+
+    private WebElement waitForPresentRadio(String title) {
+        return WaitUtils.waitForPresent(paymentRadio(title));
+    }
+
+    /** Picks cash on delivery; does not touch the A/B popup if one opens. */
+    public void selectCod() {
+        click(paymentRadio(COD));
+        WaitUtils.waitFor(d -> isCodSelected());
+    }
+
+    /** Picks cash on delivery and closes the A/B popup with "Keep COD" if this customer gets it. */
+    public void selectCodAndKeepIt() {
+        selectCod();
+        if (isCodPopupShown(3)) {
+            keepCodInPopup();
+        }
+    }
+
+    public void selectPrepaid() {
+        click(paymentRadio(PAY_ONLINE));
+        WaitUtils.waitFor(d -> isPrepaidSelected());
+    }
+
+    public boolean isPrepaidDiscountShown() {
+        return isDisplayed(prepaidDiscountLabel, 3);
+    }
+
+    public boolean isPrepaidDiscountAbsent() {
+        return WaitUtils.waitFor(d -> d.findElements(prepaidDiscountLabel).isEmpty());
+    }
+
+    public String prepaidDiscountLabel() {
+        return textContent(prepaidDiscountLabel);
+    }
+
+    public double prepaidDiscount() {
+        return ShopPage.parsePrice(getText(prepaidDiscountValue));
+    }
+
+    public double codAdvance() {
+        return ShopPage.parsePrice(getText(codAdvanceValue));
+    }
+
+    /** "Pay in cash on delivery" amount; "—" until shipping is priced. */
+    public String codDueText() {
+        return getText(codDueValue);
+    }
+
+    public boolean isCodBreakdownAbsent() {
+        return WaitUtils.waitFor(d -> d.findElements(codAdvanceValue).isEmpty() && d.findElements(codDueValue).isEmpty());
+    }
+
+    /** Text of the "Place Order &amp; Pay…" button. */
+    public String placeOrderLabel() {
+        return textContent(placeOrderButton);
+    }
+
+    public boolean isInlineCodNudgeShown() {
+        return isDisplayed(codInlineNudge, 3);
+    }
+
+    /** "Pay online &amp; save" under the payment options (shown while COD is selected). */
+    public void clickInlineCodNudge() {
+        click(codInlineNudge);
+        WaitUtils.waitFor(d -> isPrepaidSelected());
+    }
+
+    // ------------------------------------------------------------------ A/B test: COD popup
+
+    public boolean isCodPopupShown(int seconds) {
+        return isDisplayed(codPopup, seconds);
+    }
+
+    public String codPopupTitle() {
+        return textContent(codPopupTitle);
+    }
+
+    public void keepCodInPopup() {
+        click(codPopupKeepCod);
+        WaitUtils.waitForInvisible(codPopup);
+    }
+
+    public void switchToPrepaidInPopup() {
+        click(codPopupSwitch);
+        WaitUtils.waitForInvisible(codPopup);
+    }
+
+    /** Waits for the popup to close by itself (5-second countdown). */
+    public boolean codPopupClosesWithin(int seconds) {
+        try {
+            new org.openqa.selenium.support.ui.WebDriverWait(getDriver(), java.time.Duration.ofSeconds(seconds))
+                    .until(ExpectedConditions.invisibilityOfElementLocated(codPopup));
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Waits until checkout has asked the API for this customer's A/B group. The popup decision is
+     * taken when COD is clicked, so picking COD before this answer arrives would never show it.
+     */
+    public void waitForExperimentGroupLoaded() {
+        WaitUtils.waitFor(d -> Boolean.TRUE.equals(js(
+                "return performance.getEntriesByType('resource').some(e => /\\/experiments(\\?|$)/.test(e.name) && e.responseEnd > 0);")));
+    }
+
     // ------------------------------------------------------------------ Place order
 
     public void placeOrder() {

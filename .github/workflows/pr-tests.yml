@@ -49,6 +49,13 @@ jobs:
             fi
           fi
 
+      - name: Explain skipped e-mail
+        if: always() && env.SMTP_CONFIGURED != 'true'
+        run: >-
+          echo "::warning title=Results e-mail not sent::Repository secret SMTP_PASSWORD is not set.
+          Add SMTP_USERNAME and SMTP_PASSWORD under Settings > Secrets and variables > Actions >
+          Secrets tab > Repository secrets (not Variables, not Environment secrets)."
+
       - name: E-mail results
         if: always() && env.SMTP_CONFIGURED == 'true'
         uses: dawidd6/action-send-mail@v3
